@@ -1,32 +1,59 @@
+// AppTabs.tsx
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
+import { View, Text, StyleSheet } from "react-native";
 
 import DashboardScreen from "../screens/Main/DashboardScreen";
 import TaskListScreen from "../screens/Tasks/TaskListScreen";
 import TimerScreen from "../screens/Timer/TimerScreen";
 import InsightsScreen from "../screens/Insights/InsightsScreen";
 import SettingsScreen from "../screens/Settings/SettingsScreen";
+import { Colors, Spacing, BorderRadius } from "../theme/worktwinTheme";
 
-const Tab = createBottomTabNavigator();
+export type AppTabParamList = {
+  Dashboard: undefined;
+  Tasks: undefined;
+  Timer: undefined;
+  Insights: undefined;
+  Settings: undefined;
+};
+
+const Tab = createBottomTabNavigator<AppTabParamList>();
 
 export default function AppTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerStyle: { backgroundColor: "#0B1220" },
-        headerTintColor: "#E5E7EB",
-        tabBarStyle: { backgroundColor: "#0B1220", borderTopColor: "#111827" },
-        tabBarActiveTintColor: "#4F46E5",
-        tabBarInactiveTintColor: "#94A3B8",
-        tabBarIcon: ({ color, size }) => {
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: Colors.card,
+          borderTopColor: Colors.border,
+          borderTopWidth: 1,
+          height: 80,
+          paddingBottom: 15,
+          paddingTop: 10,
+        },
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "500",
+          marginTop: -2,
+        },
+        tabBarIcon: ({ focused, color, size }) => {
           let iconName: any = "home-outline";
-          if (route.name === "Dashboard") iconName = "home-outline";
-          if (route.name === "Tasks") iconName = "checkbox-outline";
-          if (route.name === "Timer") iconName = "timer-outline";
-          if (route.name === "Insights") iconName = "bar-chart-outline";
-          if (route.name === "Settings") iconName = "settings-outline";
-          return <Ionicons name={iconName} size={size} color={color} />;
+          if (route.name === "Dashboard") iconName = focused ? "home" : "home-outline";
+          if (route.name === "Tasks") iconName = focused ? "checkbox" : "checkbox-outline";
+          if (route.name === "Timer") iconName = focused ? "timer" : "timer-outline";
+          if (route.name === "Insights") iconName = focused ? "bar-chart" : "bar-chart-outline";
+          if (route.name === "Settings") iconName = focused ? "settings" : "settings-outline";
+
+          return (
+            <View style={[styles.iconContainer, focused && styles.activeIconContainer]}>
+              <Ionicons name={iconName} size={22} color={focused ? Colors.primary : color} />
+            </View>
+          );
         },
       })}
     >
@@ -38,3 +65,16 @@ export default function AppTabs() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.round,
+  },
+  activeIconContainer: {
+    backgroundColor: Colors.primary + "20",
+  },
+});

@@ -1,36 +1,36 @@
-import React, { useEffect, useState } from "react";
+// src/navigation/RootNavigator.tsx
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { ActivityIndicator, View } from "react-native";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "../services/firebaseConfig";
-
 import AuthNavigator from "./AuthNavigator";
-import AppNavigator from "./AppNavigator";
+import AppTabs from "./AppTabs";
+import { useAuth } from "../hooks/useAuth";
+import { View, ActivityIndicator } from "react-native";
+import { useTheme } from "../context/ThemeContext";  // Changed from "../../context/ThemeContext"
 
 export default function RootNavigator() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading } = useAuth();
+  const { colors } = useTheme();
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      console.log("AUTH STATE:", u ? (u.isAnonymous ? "ANON" : "USER") : "NONE");
-      setUser(u);
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
+  console.log("RootNavigator - user:", user ? "Logged in" : "Not logged in", "loading:", loading);
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <NavigationContainer>
-      {user ? <AppNavigator /> : <AuthNavigator />}
+      {user ? <AppTabs /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }
