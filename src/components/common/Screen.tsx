@@ -1,3 +1,4 @@
+// src/components/common/Screen.tsx
 import React from "react";
 import { SafeAreaView, StyleSheet, View, ViewStyle } from "react-native";
 import { useTheme } from "../../context/ThemeContext";

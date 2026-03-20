@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -96,6 +97,58 @@ export default function SettingsScreen() {
             if (success) {
               haptics.success();
               Alert.alert('Success', 'All local data has been cleared');
+=======
+// src/screens/Settings/SettingsScreen.tsx
+import React, { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { signOut } from "firebase/auth";
+import { auth } from "../../services/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import { Spacing, BorderRadius, Typography, Shadows } from "../../theme/worktwinTheme";
+import { clearAllData } from "../../utils/storage";
+
+export default function SettingsScreen() {
+  const { colors, isDarkMode, toggleTheme } = useTheme();
+  const [notifications, setNotifications] = useState(true);
+  
+  const email = auth.currentUser?.isAnonymous
+    ? "Guest User"
+    : auth.currentUser?.email ?? "Unknown";
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            await clearAllData();
+            await signOut(auth);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClearData = () => {
+    Alert.alert(
+      "Clear Data",
+      "This will delete all your tasks and focus sessions. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            const success = await clearAllData();
+            if (success) {
+              Alert.alert("Success", "All local data has been cleared");
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
             }
           },
         },
@@ -103,6 +156,7 @@ export default function SettingsScreen() {
     );
   };
 
+<<<<<<< HEAD
   const handleExportData = () => {
     haptics.medium();
     Alert.alert('Export Data', 'Choose export format', [
@@ -179,13 +233,20 @@ export default function SettingsScreen() {
     setHelpModalVisible(false);
   };
 
+=======
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
   const styles = StyleSheet.create({
     bg: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, padding: Spacing.lg },
     title: { ...Typography.h1, color: colors.text, marginBottom: Spacing.lg },
     profileCard: {
+<<<<<<< HEAD
       flexDirection: 'row',
       alignItems: 'center',
+=======
+      flexDirection: "row",
+      alignItems: "center",
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.card,
       borderRadius: BorderRadius.xl,
       padding: Spacing.lg,
@@ -193,6 +254,7 @@ export default function SettingsScreen() {
       ...Shadows.small,
     },
     profileInfo: { marginLeft: Spacing.lg, flex: 1 },
+<<<<<<< HEAD
     profileName: {
       ...Typography.body,
       fontWeight: '600',
@@ -206,38 +268,72 @@ export default function SettingsScreen() {
       paddingVertical: Spacing.xs,
       borderRadius: BorderRadius.round,
       alignSelf: 'flex-start',
+=======
+    profileName: { ...Typography.body, fontWeight: "600", color: colors.text, marginBottom: Spacing.xs },
+    profileBadge: {
+      ...Typography.caption,
+      backgroundColor: colors.primary + "20",
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.round,
+      alignSelf: "flex-start",
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       color: colors.primary,
     },
     section: { marginBottom: Spacing.xl },
     sectionTitle: { ...Typography.h3, color: colors.text, marginBottom: Spacing.md },
     settingItem: {
+<<<<<<< HEAD
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+=======
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.card,
       borderRadius: BorderRadius.lg,
       padding: Spacing.lg,
       marginBottom: Spacing.sm,
       ...Shadows.small,
     },
+<<<<<<< HEAD
     settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     settingText: { ...Typography.body, color: colors.text },
     menuItem: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+=======
+    settingLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+    settingText: { ...Typography.body, color: colors.text },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.card,
       borderRadius: BorderRadius.lg,
       padding: Spacing.lg,
       marginBottom: Spacing.sm,
       ...Shadows.small,
     },
+<<<<<<< HEAD
     menuLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     menuText: { ...Typography.body, color: colors.textSecondary },
     logoutBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+=======
+    menuLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+    menuText: { ...Typography.body, color: colors.textSecondary },
+    logoutBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.danger,
       borderRadius: BorderRadius.lg,
       padding: Spacing.lg,
@@ -246,6 +342,7 @@ export default function SettingsScreen() {
       marginBottom: Spacing.lg,
       ...Shadows.small,
     },
+<<<<<<< HEAD
     logoutText: { color: colors.text, fontSize: 18, fontWeight: '600' },
     version: { textAlign: 'center', color: colors.textMuted, fontSize: 12 },
 
@@ -340,6 +437,10 @@ export default function SettingsScreen() {
       ...Typography.body,
       color: colors.textSecondary,
     },
+=======
+    logoutText: { color: colors.text, fontSize: 18, fontWeight: "600" },
+    version: { textAlign: "center", color: colors.textMuted, fontSize: 12 },
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
   });
 
   return (
@@ -348,6 +449,7 @@ export default function SettingsScreen() {
         <View style={styles.container}>
           <Text style={styles.title}>Settings</Text>
 
+<<<<<<< HEAD
           {/* Profile Card */}
           <TouchableOpacity
             style={styles.profileCard}
@@ -384,6 +486,21 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Preferences</Text>
 
+=======
+          <View style={styles.profileCard}>
+            <Ionicons name="person-circle" size={60} color={colors.primary} />
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{email}</Text>
+              <Text style={[styles.profileBadge, { color: colors.primary }]}>
+                {auth.currentUser?.isAnonymous ? "Guest Account" : "Registered User"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Preferences</Text>
+            
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="notifications-outline" size={22} color={colors.primary} />
@@ -391,20 +508,31 @@ export default function SettingsScreen() {
               </View>
               <Switch
                 value={notifications}
+<<<<<<< HEAD
                 onValueChange={handleNotificationToggle}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.text}
                 ios_backgroundColor={colors.border}
+=======
+                onValueChange={setNotifications}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.text}
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               />
             </View>
 
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
+<<<<<<< HEAD
                 <Ionicons name={isDarkMode ? 'moon' : 'sunny-outline'} size={22} color={colors.primary} />
+=======
+                <Ionicons name={isDarkMode ? "moon" : "sunny-outline"} size={22} color={colors.primary} />
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
                 <Text style={styles.settingText}>Dark Mode</Text>
               </View>
               <Switch
                 value={isDarkMode}
+<<<<<<< HEAD
                 onValueChange={() => {
                   haptics.switch();
                   toggleTheme();
@@ -412,10 +540,16 @@ export default function SettingsScreen() {
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.text}
                 ios_backgroundColor={colors.border}
+=======
+                onValueChange={toggleTheme}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.text}
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               />
             </View>
           </View>
 
+<<<<<<< HEAD
           {/* Security Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Security</Text>
@@ -467,6 +601,11 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
+=======
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Data Management</Text>
+            
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
             <TouchableOpacity style={styles.menuItem} onPress={handleClearData}>
               <View style={styles.menuLeft}>
                 <Ionicons name="trash-outline" size={22} color={colors.danger} />
@@ -476,11 +615,18 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+<<<<<<< HEAD
           {/* Support Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Support</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleHelpSupport}>
+=======
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Support</Text>
+            
+            <TouchableOpacity style={styles.menuItem}>
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               <View style={styles.menuLeft}>
                 <Ionicons name="help-circle-outline" size={22} color={colors.textSecondary} />
                 <Text style={styles.menuText}>Help & Support</Text>
@@ -488,7 +634,11 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
+<<<<<<< HEAD
             <TouchableOpacity style={styles.menuItem} onPress={handleAbout}>
+=======
+            <TouchableOpacity style={styles.menuItem}>
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               <View style={styles.menuLeft}>
                 <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
                 <Text style={styles.menuText}>About WorkTwin</Text>
@@ -497,12 +647,16 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+<<<<<<< HEAD
           {/* Logout Button */}
+=======
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={22} color={colors.text} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
 
+<<<<<<< HEAD
           <Text style={styles.version}>Version {appVersion}</Text>
         </View>
       </ScrollView>
@@ -651,6 +805,11 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+=======
+          <Text style={styles.version}>Version 1.0.0</Text>
+        </View>
+      </ScrollView>
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
     </SafeAreaView>
   );
 }

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -57,10 +58,24 @@ const darkColors: ThemeColors = {
   warning: '#FBBF24',
   danger: '#F87171',
   info: '#60A5FA',
+=======
+// src/context/ThemeContext.tsx
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme } from 'react-native';
+import { lightColors, darkColors } from '../theme/worktwinTheme';
+
+type ThemeContextType = {
+  isDarkMode: boolean;
+  colors: typeof lightColors;
+  toggleTheme: () => void;
+  setDarkMode: (value: boolean) => void;
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+<<<<<<< HEAD
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useColorScheme();
   const [isDarkMode, setIsDarkMode] = useState(false); // Default to light mode
@@ -81,17 +96,50 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error loading theme:', error);
+=======
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const systemColorScheme = useColorScheme();
+  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadThemePreference();
+  }, []);
+
+  const loadThemePreference = async () => {
+    try {
+      const savedTheme = await AsyncStorage.getItem('theme_preference');
+      if (savedTheme !== null) {
+        setIsDarkMode(savedTheme === 'dark');
+      }
+    } catch (error) {
+      console.error('Error loading theme preference:', error);
+    } finally {
+      setIsLoading(false);
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
     }
   };
 
   const toggleTheme = async () => {
+<<<<<<< HEAD
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
     await AsyncStorage.setItem('theme', newMode ? 'dark' : 'light');
+=======
+    const newValue = !isDarkMode;
+    setIsDarkMode(newValue);
+    await AsyncStorage.setItem('theme_preference', newValue ? 'dark' : 'light');
+  };
+
+  const setDarkMode = async (value: boolean) => {
+    setIsDarkMode(value);
+    await AsyncStorage.setItem('theme_preference', value ? 'dark' : 'light');
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
   };
 
   const colors = isDarkMode ? darkColors : lightColors;
 
+<<<<<<< HEAD
   return (
     <ThemeContext.Provider value={{ colors, isDarkMode, toggleTheme }}>
       {children}
@@ -106,3 +154,23 @@ export function useTheme() {
   }
   return context;
 }
+=======
+  if (isLoading) {
+    return null; // Or a loading spinner
+  }
+
+  return (
+    <ThemeContext.Provider value={{ isDarkMode, colors, toggleTheme, setDarkMode }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+>>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
