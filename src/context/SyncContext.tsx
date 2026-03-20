@@ -22,29 +22,21 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const [retryCount, setRetryCount] = useState(0);
   const { user } = useAuth();
 
-  // Monitor network connectivity
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       const online = state.isConnected ?? false;
       const wasOffline = !isOnline;
-      
       setIsOnline(online);
-      
-      // If we just came back online and have pending changes, trigger sync
       if (online && wasOffline && pendingChanges > 0) {
         triggerSync();
       }
     });
-
-    // Get initial network state
     NetInfo.fetch().then(state => {
       setIsOnline(state.isConnected ?? false);
     });
-
     return () => unsubscribe();
   }, [isOnline, pendingChanges]);
 
-  // Load pending changes count when user changes
   useEffect(() => {
     if (user) {
       loadPendingCount();
@@ -53,30 +45,11 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  // Set up periodic sync check (every 5 minutes when online and have pending changes)
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (user && isOnline && pendingChanges > 0 && syncStatus !== 'syncing') {
-      interval = setInterval(() => {
-        triggerSync();
-      }, 5 * 60 * 1000); // 5 minutes
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [user, isOnline, pendingChanges, syncStatus]);
-
   const loadPendingCount = async () => {
     if (!user) return;
     try {
       const changes = await offlineService.getPendingChanges(user.uid);
       setPendingChanges(changes.length);
-      
-      // If there are pending changes and we're online, set status to pending
       if (changes.length > 0 && isOnline) {
         setSyncStatus('pending');
       }
@@ -86,23 +59,16 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   };
 
   const triggerSync = useCallback(async () => {
-    if (!isOnline || !user || syncStatus === 'syncing') {
-      console.log('Sync skipped:', { isOnline, hasUser: !!user, syncStatus });
-      return;
-    }
+    if (!isOnline || !user || syncStatus === 'syncing') return;
 
     setSyncStatus('syncing');
-    console.log('Starting sync...');
-
     try {
       const success = await offlineService.syncPending(user.uid);
-      
       if (success) {
         setSyncStatus('idle');
         setLastSyncTime(Date.now());
         setPendingChanges(0);
         setRetryCount(0);
-        console.log('Sync completed successfully');
       } else {
         throw new Error('Sync failed');
       }
@@ -110,12 +76,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       console.error('Sync error:', error);
       setSyncStatus('error');
       setRetryCount(prev => prev + 1);
-      
-      // Auto-retry up to 3 times with exponential backoff
       if (retryCount < 3) {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        console.log(`Retrying sync in ${delay}ms (attempt ${retryCount + 1}/3)`);
-        
         setTimeout(() => {
           if (isOnline && user) {
             triggerSync();
@@ -131,17 +93,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       await triggerSync();
     }
   }, [syncStatus, triggerSync]);
-
-  // Listen for pending changes updates from other components
-  useEffect(() => {
-    const handleStorageChange = () => {
-      if (user) {
-        loadPendingCount();
-      }
-    };
-
-    return () => {};
-  }, [user]);
 
   const value = {
     isOnline,
