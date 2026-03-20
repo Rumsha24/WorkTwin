@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,125 +6,186 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-} from "react-native";
-import {
-  signInWithEmailAndPassword,
-  signInAnonymously,
-} from "firebase/auth";
-import { auth } from "../../services/firebaseConfig";
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { login, loginAsGuest } from '../../services/authService';
+import { useTheme } from '../../context/ThemeContext';
+import { Spacing, BorderRadius, Typography } from '../../theme/worktwinTheme';
+import { haptics } from '../../utils/haptics';
 
 export default function LoginScreen({ navigation }: any) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { colors } = useTheme();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Login Error", "Please enter email and password.");
+      haptics.error();
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      setLoading(true);
+      haptics.medium();
+      await login(email, password);
+      haptics.success();
     } catch (error: any) {
-      Alert.alert("Login Error", error.message);
+      haptics.error();
+      Alert.alert('Login Failed', error?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGuestLogin = async () => {
     try {
-      await signInAnonymously(auth);
+      setGuestLoading(true);
+      haptics.medium();
+      await loginAsGuest();
+      haptics.success();
     } catch (error: any) {
-      Alert.alert("Guest Login Error", error.message);
+      haptics.error();
+      Alert.alert('Guest Login Failed', error?.message || 'Something went wrong');
+    } finally {
+      setGuestLoading(false);
     }
   };
 
+  const styles = StyleSheet.create({
+    flex: {
+      flex: 1,
+    },
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: Spacing.xl,
+    },
+    title: {
+      ...Typography.h1,
+      fontSize: 42,
+      color: colors.primary,
+      textAlign: 'center',
+      marginBottom: Spacing.xs,
+    },
+    subtitle: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: Spacing.xxxl,
+    },
+    input: {
+      backgroundColor: colors.surface,
+      color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.lg,
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.lg,
+      marginBottom: Spacing.md,
+      fontSize: 16,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: Spacing.lg,
+      borderRadius: BorderRadius.lg,
+      alignItems: 'center',
+      marginTop: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    primaryButtonText: {
+      ...Typography.button,
+      color: colors.text,
+    },
+    secondaryButton: {
+      backgroundColor: colors.surface,
+      paddingVertical: Spacing.lg,
+      borderRadius: BorderRadius.lg,
+      alignItems: 'center',
+      marginBottom: Spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    secondaryButtonText: {
+      ...Typography.button,
+      color: colors.textSecondary,
+    },
+    link: {
+      ...Typography.body,
+      textAlign: 'center',
+      color: colors.primary,
+    },
+  });
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>WorkTwin</Text>
-      <Text style={styles.subtitle}>Login to continue</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TouchableOpacity style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => navigation.navigate("Register")}
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
       >
-        <Text style={styles.secondaryText}>Create Account</Text>
-      </TouchableOpacity>
+        <View style={styles.container}>
+          <Text style={styles.title}>WorkTwin</Text>
+          <Text style={styles.subtitle}>Focus on what matters</Text>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={handleGuestLogin}
-      >
-        <Text style={styles.secondaryText}>Continue as Guest</Text>
-      </TouchableOpacity>
-    </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor={colors.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!loading && !guestLoading}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor={colors.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!loading && !guestLoading}
+          />
+
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleLogin}
+            disabled={loading || guestLoading}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Login</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleGuestLogin}
+            disabled={loading || guestLoading}
+          >
+            {guestLoading ? (
+              <ActivityIndicator color={colors.textSecondary} />
+            ) : (
+              <Text style={styles.secondaryButtonText}>Continue as Guest</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.link}>Don't have an account? Register</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0B1220",
-    justifyContent: "center",
-    padding: 20,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#aaa",
-    textAlign: "center",
-    marginBottom: 30,
-  },
-  input: {
-    backgroundColor: "#1E293B",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-    color: "#fff",
-  },
-  button: {
-    backgroundColor: "#4F46E5",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    marginTop: 10,
-  },
-  secondaryText: {
-    color: "#94A3B8",
-  },
-});

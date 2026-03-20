@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,94 +6,168 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-} from "react-native";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../services/firebaseConfig";
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { register } from '../../services/authService';
+import { useTheme } from '../../context/ThemeContext';
+import { Spacing, BorderRadius, Typography } from '../../theme/worktwinTheme';
+import { haptics } from '../../utils/haptics';
+import { validateEmail, validatePassword } from '../../utils/validation';
 
 export default function RegisterScreen({ navigation }: any) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { colors } = useTheme();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const register = async () => {
+  const handleRegister = async () => {
+    if (!email || !password || !confirmPassword) {
+      haptics.error();
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      haptics.error();
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      haptics.error();
+      Alert.alert('Error', 'Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      haptics.error();
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-    } catch (e: any) {
-      Alert.alert("Register Error", e.message);
+      setLoading(true);
+      haptics.medium();
+      await register(email, password);
+      haptics.success();
+    } catch (error: any) {
+      haptics.error();
+      Alert.alert('Register Failed', error?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const styles = StyleSheet.create({
+    flex: {
+      flex: 1,
+    },
+    safe: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: Spacing.xl,
+    },
+    title: {
+      ...Typography.h1,
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: Spacing.xxl,
+    },
+    input: {
+      backgroundColor: colors.surface,
+      color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: BorderRadius.lg,
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.lg,
+      marginBottom: Spacing.md,
+      fontSize: 16,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: Spacing.lg,
+      borderRadius: BorderRadius.lg,
+      alignItems: 'center',
+      marginTop: Spacing.sm,
+      marginBottom: Spacing.xl,
+    },
+    primaryButtonText: {
+      ...Typography.button,
+      color: colors.text,
+    },
+    link: {
+      ...Typography.body,
+      textAlign: 'center',
+      color: colors.primary,
+    },
+  });
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
+        <View style={styles.container}>
+          <Text style={styles.title}>Create Account</Text>
 
-      <TextInput
-        placeholder="Email"
-        placeholderTextColor="#9aa4b2"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-      />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor={colors.textMuted}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!loading}
+          />
 
-      <TextInput
-        placeholder="Password"
-        placeholderTextColor="#9aa4b2"
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor={colors.textMuted}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!loading}
+          />
 
-      <TouchableOpacity style={styles.primaryBtn} onPress={register}>
-        <Text style={styles.primaryText}>Register</Text>
-      </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor={colors.textMuted}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            editable={!loading}
+          />
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.link}>Back to Login</Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <Text style={styles.primaryButtonText}>Register</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.link}>Already have an account? Login</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0B1220",
-    justifyContent: "center",
-    padding: 22,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: "#EAF0FF",
-    textAlign: "center",
-    marginBottom: 22,
-  },
-  input: {
-    backgroundColor: "#101A2E",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 12,
-    color: "#EAF0FF",
-    fontWeight: "600",
-  },
-  primaryBtn: {
-    backgroundColor: "#3949AB",
-    padding: 14,
-    borderRadius: 14,
-    alignItems: "center",
-    marginTop: 6,
-  },
-  primaryText: {
-    color: "#fff",
-    fontWeight: "900",
-  },
-  link: {
-    color: "#A9B3CC",
-    textAlign: "center",
-    marginTop: 18,
-    fontWeight: "700",
-  },
-});

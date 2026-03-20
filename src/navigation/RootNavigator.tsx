@@ -1,36 +1,31 @@
-import React, { useEffect, useState } from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { ActivityIndicator, View } from "react-native";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "../services/firebaseConfig";
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
+import AuthNavigator from './AuthNavigator';
+import AppTabs from './AppTabs';
+import { RootStackParamList } from './types';
 
-import AuthNavigator from "./AuthNavigator";
-import AppNavigator from "./AppNavigator";
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      console.log("AUTH STATE:", u ? (u.isAnonymous ? "ANON" : "USER") : "NONE");
-      setUser(u);
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
+  const { user, loading } = useAuth();
+  const { colors } = useTheme();
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+    return null; // You can add a loading screen here
   }
 
   return (
     <NavigationContainer>
-      {user ? <AppNavigator /> : <AuthNavigator />}
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!user ? (
+          <Stack.Screen name="Auth" component={AuthNavigator} />
+        ) : (
+          <Stack.Screen name="Main" component={AppTabs} />
+        )}
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }
