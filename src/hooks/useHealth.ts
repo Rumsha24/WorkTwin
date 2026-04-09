@@ -194,7 +194,7 @@ export function useHealth() {
   };
 
   const addMedicine = async (name: string, time: string, dosage: string) => {
-    const { notificationService } = await import('../services/NotificationService');
+    const { notificationService } = await import('../services/notificationService');
 
     let notificationId: string | null = null;
 
@@ -250,7 +250,7 @@ export function useHealth() {
   };
 
   const deleteMedicine = async (id: string) => {
-    const { notificationService } = await import('../services/NotificationService');
+    const { notificationService } = await import('../services/notificationService');
     const medicine = healthData.medicines.find((med) => med.id === id);
 
     if (medicine?.notificationId) {
