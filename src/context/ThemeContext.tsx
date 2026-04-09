@@ -1,7 +1,7 @@
- import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface ThemeColors {
+export interface ThemeColors {
   primary: string;
   secondary: string;
   accent: string;
@@ -24,34 +24,34 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const lightColors: ThemeColors = {
+export const lightColors: ThemeColors = {
   primary: '#6366F1',
   secondary: '#8B5CF6',
   accent: '#EC4899',
-  background: '#FFFFFF',
-  surface: '#F3F4F6',
+  background: '#F8FAFC',
+  surface: '#F1F5F9',
   card: '#FFFFFF',
-  text: '#1F2937',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  border: '#E5E7EB',
+  text: '#0F172A',
+  textSecondary: '#475569',
+  textMuted: '#94A3B8',
+  border: '#E2E8F0',
   success: '#10B981',
   warning: '#F59E0B',
   danger: '#EF4444',
   info: '#3B82F6',
 };
 
-const darkColors: ThemeColors = {
+export const darkColors: ThemeColors = {
   primary: '#818CF8',
   secondary: '#A78BFA',
   accent: '#F472B6',
-  background: '#111827',
-  surface: '#1F2937',
-  card: '#1F2937',
-  text: '#F9FAFB',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  border: '#374151',
+  background: '#0F172A',
+  surface: '#1E293B',
+  card: '#1E293B',
+  text: '#F8FAFC',
+  textSecondary: '#CBD5E1',
+  textMuted: '#94A3B8',
+  border: '#334155',
   success: '#34D399',
   warning: '#FBBF24',
   danger: '#F87171',
@@ -102,4 +102,4 @@ export function useTheme() {
     throw new Error('useTheme must be used within ThemeProvider');
   }
   return context;
-} 
+}

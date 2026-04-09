@@ -1,54 +1,57 @@
-import React, { createContext, useEffect, useMemo, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../services/firebaseConfig';
-import {
-  login as loginService,
-  register as registerService,
-  loginAsGuest as loginAsGuestService,
-  logout as logoutService,
-} from '../services/authService';
+import React, { createContext, useEffect, useState } from 'react';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { login as authLogin, loginAsGuest as authLoginAsGuest, register as authRegister, logout as authLogout } from '../services/authService';
 
-type AuthContextType = {
+export type AuthContextType = {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  register: (email: string, password: string) => Promise<User>;
   loginAsGuest: () => Promise<User>;
+  register: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
 };
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
-type Props = {
+type AuthProviderProps = {
   children: React.ReactNode;
 };
 
-export function AuthProvider({ children }: Props) {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('👤 Auth listener initialized');
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
       setLoading(false);
     });
-
     return unsubscribe;
   }, []);
 
-  const value = useMemo<AuthContextType>(
-    () => ({
-      user,
-      loading,
-      login: loginService,
-      register: registerService,
-      loginAsGuest: loginAsGuestService,
-      logout: logoutService,
-    }),
-    [user, loading]
-  );
+  const login = async (email: string, password: string) => {
+    const result = await authLogin(email, password);
+    return result;
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+  const loginAsGuest = async () => {
+    const result = await authLoginAsGuest();
+    return result;
+  };
+
+  const register = async (email: string, password: string) => {
+    const result = await authRegister(email, password);
+    return result;
+  };
+
+  const logout = async () => {
+    await authLogout();
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, loginAsGuest, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};

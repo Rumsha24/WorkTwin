@@ -1,12 +1,14 @@
 import React from 'react';
 import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { SyncProvider } from './src/context/SyncContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
 function AppContent() {
-  const { isDarkMode, colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
 
   return (
     <>
@@ -21,12 +23,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <SyncProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
         <AuthProvider>
-          <AppContent />
+          <SyncProvider>
+            <AppContent />
+          </SyncProvider>
         </AuthProvider>
-      </SyncProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

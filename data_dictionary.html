@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkTwin Data Dictionary</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 32px; margin-bottom: 10px; }
+        .header p { opacity: 0.9; font-size: 16px; }
+        .content { padding: 30px; }
+        .collection-section {
+            margin-bottom: 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .collection-title {
+            background: #f1f5f9;
+            padding: 15px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #1e293b;
+            border-bottom: 3px solid #6366F1;
+        }
+        .collection-title code {
+            background: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #6366F1;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: #f8fafc;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #1e293b;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 14px;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 14px;
+        }
+        tr:hover { background: #f8fafc; }
+        .field-name {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #6366F1;
+        }
+        .type-badge {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+        }
+        .required-yes { color: #10b981; font-weight: 600; }
+        .required-no { color: #ef4444; font-weight: 600; }
+        .default-value {
+            font-family: 'Courier New', monospace;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .footer {
+            background: #f1f5f9;
+            padding: 20px;
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            border-top: 1px solid #e2e8f0;
+        }
+        @media (max-width: 768px) {
+            body { padding: 20px; }
+            th, td { padding: 8px 10px; font-size: 12px; }
+            .collection-title { font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 WorkTwin Data Dictionary</h1>
+            <p>Complete database schema documentation</p>
+            <p style="font-size: 12px; margin-top: 10px;">Generated on: 2026-03-20, 9:31:47 p.m.</p>
+        </div>
+        <div class="content">
+            <div class="collection-section">
+                <div class="collection-title">
+                    📁 Collection: <code>users</code>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Name</th>
+                            <th>Data Type</th>
+                            <th>Required</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="field-name">displayName</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>User display name</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">email</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>User email address</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">photoURL</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Profile picture URL</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">bio</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">""</code></td>
+                            <td>User biography</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">occupation</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">""</code></td>
+                            <td>Job title</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">dailyGoal</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">120</code></td>
+                            <td>Daily focus goal (minutes)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">weeklyGoal</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">600</code></td>
+                            <td>Weekly focus goal (minutes)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">theme</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">"light"</code></td>
+                            <td>App theme preference (light/dark/system)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">createdAt</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">now()</code></td>
+                            <td>Account creation timestamp</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">updatedAt</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">now()</code></td>
+                            <td>Last update timestamp</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="collection-section">
+                <div class="collection-title">
+                    📁 Collection: <code>users.notifications</code>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Name</th>
+                            <th>Data Type</th>
+                            <th>Required</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="field-name">taskReminders</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">true</code></td>
+                            <td>Enable task reminder notifications</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">sessionReminders</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">true</code></td>
+                            <td>Enable session reminder notifications</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">dailySummary</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">false</code></td>
+                            <td>Enable daily summary notifications</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">sound</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">true</code></td>
+                            <td>Enable notification sounds</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">vibration</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">true</code></td>
+                            <td>Enable notification vibration</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="collection-section">
+                <div class="collection-title">
+                    📁 Collection: <code>tasks</code>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Name</th>
+                            <th>Data Type</th>
+                            <th>Required</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="field-name">id</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">auto</code></td>
+                            <td>Unique task identifier (UUID)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">title</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Task title</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">done</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">false</code></td>
+                            <td>Completion status</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">category</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">"other"</code></td>
+                            <td>Task category (work/personal/study/health/other)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">priority</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">"medium"</code></td>
+                            <td>Priority level (low/medium/high)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">dueDate</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Due date timestamp</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">reminder</td>
+                            <td><span class="type-badge">boolean</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">false</code></td>
+                            <td>Reminder enabled</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">reminderTime</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Reminder timestamp</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">notes</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">""</code></td>
+                            <td>Additional notes</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">createdAt</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">now()</code></td>
+                            <td>Creation timestamp</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">updatedAt</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">now()</code></td>
+                            <td>Last update timestamp</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="collection-section">
+                <div class="collection-title">
+                    📁 Collection: <code>sessions</code>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Name</th>
+                            <th>Data Type</th>
+                            <th>Required</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="field-name">id</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">auto</code></td>
+                            <td>Unique session identifier</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">seconds</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Duration in seconds</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">endedAt</td>
+                            <td><span class="type-badge">timestamp</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">now()</code></td>
+                            <td>Session end timestamp</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">taskId</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Associated task ID (optional reference)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">productivity</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">5</code></td>
+                            <td>Self-rated productivity (1-10)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">focusScore</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">5</code></td>
+                            <td>Calculated focus score (1-10)</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">interruptions</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">0</code></td>
+                            <td>Number of interruptions logged</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="collection-section">
+                <div class="collection-title">
+                    📁 Collection: <code>local</code>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Field Name</th>
+                            <th>Data Type</th>
+                            <th>Required</th>
+                            <th>Default</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="field-name">worktwin_tasks</td>
+                            <td><span class="type-badge">JSON Array</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">[]</code></td>
+                            <td>Cached tasks for offline access</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">worktwin_focus</td>
+                            <td><span class="type-badge">JSON Array</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">[]</code></td>
+                            <td>Cached focus sessions</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">worktwin_trends</td>
+                            <td><span class="type-badge">JSON Array</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">[]</code></td>
+                            <td>Productivity trends data</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">theme</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">"light"</code></td>
+                            <td>User theme preference</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">guestExpiry</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">null</code></td>
+                            <td>Guest account expiration timestamp</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">notifications_enabled</td>
+                            <td><span class="type-badge">string</span></td>
+                            <td class="required-yes">✅ Yes</td>
+                            <td><code class="default-value">"true"</code></td>
+                            <td>Notification preference</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">pending_changes_{userId}</td>
+                            <td><span class="type-badge">JSON Array</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">[]</code></td>
+                            <td>Offline sync queue</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">medicines</td>
+                            <td><span class="type-badge">JSON Array</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">[]</code></td>
+                            <td>Medicine reminders data</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">sleepData</td>
+                            <td><span class="type-badge">JSON Array</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">[]</code></td>
+                            <td>Sleep tracking logs</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">stepData</td>
+                            <td><span class="type-badge">JSON Object</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">{}</code></td>
+                            <td>Step count data</td>
+                        </tr>
+                        <tr>
+                            <td class="field-name">mentalHealthScore</td>
+                            <td><span class="type-badge">number</span></td>
+                            <td class="required-no">❌ No</td>
+                            <td><code class="default-value">0</code></td>
+                            <td>Mental health score</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="footer">
+            <p>WorkTwin - Focus Timer & Task Management App</p>
+            <p>Firestore NoSQL Database Schema | Version 2.0.0</p>
+        </div>
+    </div>
+</body>
+</html>

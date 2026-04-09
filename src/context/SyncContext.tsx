@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import NetInfo from '@react-native-community/netinfo';
 import { offlineService } from '../services/offlineService';
 import { useAuth } from '../hooks/useAuth';
+import { testFirebaseConnection } from '../utils/testFirebase';
 
 interface SyncContextType {
   isOnline: boolean;
@@ -22,20 +23,74 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const [retryCount, setRetryCount] = useState(0);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      const online = state.isConnected ?? false;
-      const wasOffline = !isOnline;
-      setIsOnline(online);
-      if (online && wasOffline && pendingChanges > 0) {
-        triggerSync();
+  // Function to check actual connection status
+  const checkConnection = useCallback(async () => {
+    try {
+      // Check network connectivity
+      const netInfo = await NetInfo.fetch();
+      const isNetworkConnected = netInfo.isConnected ?? true;
+      
+      if (!isNetworkConnected) {
+        console.log('📶 Network offline');
+        return false;
       }
+      
+      // Check Firebase connectivity by trying to get a reference
+      // This is a lightweight check
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        // Check if auth is initialized (doesn't require network call)
+        const isAuthInitialized = !!auth;
+        
+        if (isAuthInitialized) {
+          console.log('✅ Firebase auth initialized');
+          return true;
+        }
+        return false;
+      } catch (fbError) {
+        console.log('Firebase check failed:', fbError);
+        return false;
+      }
+    } catch (error) {
+      console.error('Connection check error:', error);
+      return true; // Default to online on error
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let interval: NodeJS.Timeout;
+
+    const updateConnection = async () => {
+      const online = await checkConnection();
+      if (mounted && online !== isOnline) {
+        setIsOnline(online);
+        console.log('📶 Connection status changed:', online ? 'Online ✅' : 'Offline ❌');
+        
+        if (online && !isOnline && pendingChanges > 0) {
+          triggerSync();
+        }
+      }
+    };
+
+    // Initial check
+    updateConnection();
+
+    // Check every 10 seconds
+    interval = setInterval(updateConnection, 10000);
+
+    // Listen for network changes
+    const unsubscribe = NetInfo.addEventListener(() => {
+      updateConnection();
     });
-    NetInfo.fetch().then(state => {
-      setIsOnline(state.isConnected ?? false);
-    });
-    return () => unsubscribe();
-  }, [isOnline, pendingChanges]);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      unsubscribe();
+    };
+  }, [isOnline, pendingChanges, checkConnection]);
 
   useEffect(() => {
     if (user) {
@@ -59,9 +114,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   };
 
   const triggerSync = useCallback(async () => {
-    if (!isOnline || !user || syncStatus === 'syncing') return;
+    if (!user || syncStatus === 'syncing') {
+      console.log('Sync skipped:', { hasUser: !!user, syncStatus });
+      return;
+    }
 
     setSyncStatus('syncing');
+    console.log('🔄 Starting sync...');
+
     try {
       const success = await offlineService.syncPending(user.uid);
       if (success) {
@@ -69,23 +129,25 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         setLastSyncTime(Date.now());
         setPendingChanges(0);
         setRetryCount(0);
+        console.log('✅ Sync completed successfully');
       } else {
         throw new Error('Sync failed');
       }
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('❌ Sync error:', error);
       setSyncStatus('error');
       setRetryCount(prev => prev + 1);
+      
       if (retryCount < 3) {
         const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
         setTimeout(() => {
-          if (isOnline && user) {
+          if (user) {
             triggerSync();
           }
         }, delay);
       }
     }
-  }, [isOnline, user, syncStatus, retryCount]);
+  }, [user, syncStatus, retryCount]);
 
   const retryFailedSync = useCallback(async () => {
     if (syncStatus === 'error') {

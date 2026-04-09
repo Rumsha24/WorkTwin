@@ -1,472 +1,281 @@
-<<<<<<< HEAD
-import React, { useState } from 'react';
-=======
-// src/screens/Auth/LoginScreen.tsx
-import React, { useState } from "react";
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
-<<<<<<< HEAD
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { login, loginAsGuest } from '../../services/authService';
+import { Ionicons } from '@expo/vector-icons';
+import { getAuth, signInWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
+
 import { useTheme } from '../../context/ThemeContext';
-import { Spacing, BorderRadius, Typography } from '../../theme/worktwinTheme';
 import { haptics } from '../../utils/haptics';
 
 export default function LoginScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const auth = getAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
-=======
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from "react-native";
-import { signInWithEmailAndPassword, signInAnonymously } from "firebase/auth";
-import { auth } from "../../services/firebaseConfig";
-import { useNavigation } from "@react-navigation/native";
-import { useTheme } from "../../context/ThemeContext";
-import { Spacing, BorderRadius, Typography, Shadows } from "../../theme/worktwinTheme";
-import { Ionicons } from "@expo/vector-icons";
+  
+  // Animation values - removed shaking animation
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-export default function LoginScreen() {
-  const navigation = useNavigation<any>();
-  const { colors } = useTheme();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
-
-  const onLogin = async () => {
-    if (!email || !password) {
-<<<<<<< HEAD
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
       haptics.error();
       Alert.alert('Error', 'Please fill in all fields');
-=======
-      Alert.alert("Error", "Please fill in all fields");
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       return;
     }
+
     try {
-<<<<<<< HEAD
       setLoading(true);
       haptics.medium();
-      await login(email, password);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
       haptics.success();
     } catch (error: any) {
       haptics.error();
-      Alert.alert('Login Failed', error?.message || 'Something went wrong');
+      Alert.alert('Login Failed', error?.message || 'Unable to login');
     } finally {
       setLoading(false);
-=======
-      setBusy(true);
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      // Navigation happens automatically via RootNavigator
-    } catch (e: any) {
-      let errorMessage = "Failed to login";
-      if (e.code === 'auth/user-not-found') {
-        errorMessage = "No account found with this email";
-      } else if (e.code === 'auth/wrong-password') {
-        errorMessage = "Incorrect password";
-      } else if (e.code === 'auth/invalid-email') {
-        errorMessage = "Invalid email format";
-      } else if (e.code === 'auth/too-many-requests') {
-        errorMessage = "Too many failed attempts. Try again later";
-      }
-      Alert.alert("Login Error", errorMessage);
-    } finally {
-      setBusy(false);
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
     }
   };
 
-  const onGuest = async () => {
+  const handleGuestLogin = async () => {
     try {
-<<<<<<< HEAD
       setGuestLoading(true);
       haptics.medium();
-      await loginAsGuest();
+      await signInAnonymously(auth);
       haptics.success();
     } catch (error: any) {
       haptics.error();
-      Alert.alert('Guest Login Failed', error?.message || 'Something went wrong');
+      Alert.alert('Guest Login Failed', error?.message || 'Unable to continue as guest');
     } finally {
       setGuestLoading(false);
-=======
-      setBusy(true);
-      await signInAnonymously(auth);
-      // Navigation happens automatically via RootNavigator
-    } catch (e: any) {
-      Alert.alert("Guest Login Error", e?.message ?? "Failed to login as guest");
-    } finally {
-      setBusy(false);
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
     }
   };
 
   const styles = StyleSheet.create({
-<<<<<<< HEAD
-    flex: {
-      flex: 1,
-    },
-    safe: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
+    bg: { flex: 1, backgroundColor: colors.background },
     container: {
       flex: 1,
       justifyContent: 'center',
-      padding: Spacing.xl,
+      padding: 24,
     },
     title: {
-      ...Typography.h1,
-      fontSize: 42,
+      fontSize: 40,
+      fontWeight: '700',
       color: colors.primary,
+      marginBottom: 8,
       textAlign: 'center',
-      marginBottom: Spacing.xs,
     },
     subtitle: {
-      ...Typography.body,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: Spacing.xxxl,
-    },
-    input: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: BorderRadius.lg,
-      paddingHorizontal: Spacing.lg,
-      paddingVertical: Spacing.lg,
-      marginBottom: Spacing.md,
       fontSize: 16,
-    },
-    primaryButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: Spacing.lg,
-      borderRadius: BorderRadius.lg,
-      alignItems: 'center',
-      marginTop: Spacing.sm,
-      marginBottom: Spacing.md,
-    },
-    primaryButtonText: {
-      ...Typography.button,
-      color: colors.text,
-    },
-    secondaryButton: {
-      backgroundColor: colors.surface,
-      paddingVertical: Spacing.lg,
-      borderRadius: BorderRadius.lg,
-      alignItems: 'center',
-      marginBottom: Spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    secondaryButtonText: {
-      ...Typography.button,
       color: colors.textSecondary,
-    },
-    link: {
-      ...Typography.body,
+      marginBottom: 36,
       textAlign: 'center',
-      color: colors.primary,
-=======
-    bg: { 
-      flex: 1, 
-      backgroundColor: colors.background 
-    },
-    container: { 
-      flex: 1, 
-      justifyContent: "center", 
-      padding: Spacing.xl 
-    },
-    header: { 
-      marginBottom: Spacing.xxl, 
-      alignItems: "center" 
-    },
-    title: { 
-      ...Typography.h1, 
-      fontSize: 44, 
-      color: colors.primary, 
-      marginBottom: Spacing.xs 
-    },
-    sub: { 
-      ...Typography.body, 
-      color: colors.textSecondary 
-    },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: BorderRadius.xl,
-      padding: Spacing.xl,
-      ...Shadows.medium,
-    },
-    cardTitle: { 
-      ...Typography.h3, 
-      marginBottom: Spacing.lg, 
-      color: colors.text 
     },
     inputContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.surface,
-      borderRadius: BorderRadius.lg,
-      marginBottom: Spacing.md,
+      marginBottom: 16,
+    },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    inputIcon: { 
-      paddingHorizontal: Spacing.md 
+    inputIcon: {
+      paddingHorizontal: 14,
     },
     input: {
       flex: 1,
       color: colors.text,
-      paddingVertical: Spacing.lg,
+      paddingVertical: 16,
+      paddingRight: 16,
       fontSize: 16,
     },
-    eyeIcon: { 
-      paddingHorizontal: Spacing.md 
+    eyeIcon: {
+      paddingHorizontal: 14,
     },
-    forgotPassword: { 
-      alignSelf: "flex-end", 
-      marginBottom: Spacing.lg 
-    },
-    forgotText: { 
-      color: colors.primary, 
-      fontSize: 14, 
-      fontWeight: "500" 
-    },
-    primaryBtn: {
+    loginButton: {
       backgroundColor: colors.primary,
-      paddingVertical: Spacing.lg,
-      borderRadius: BorderRadius.lg,
-      alignItems: "center",
-      marginBottom: Spacing.md,
-      ...Shadows.small,
+      paddingVertical: 16,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginTop: 8,
+      marginBottom: 12,
     },
-    disabled: { 
-      opacity: 0.6 
+    loginButtonText: {
+      color: '#fff',
+      fontWeight: '700',
+      fontSize: 16,
     },
-    primaryText: { 
-      ...Typography.button, 
-      color: colors.text 
-    },
-    secondaryBtn: { 
-      alignItems: "center", 
-      marginBottom: Spacing.lg 
-    },
-    secondaryText: { 
-      color: colors.textSecondary, 
-      fontSize: 15 
-    },
-    highlight: { 
-      color: colors.primary, 
-      fontWeight: "600" 
-    },
-    divider: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginVertical: Spacing.lg,
-    },
-    dividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: colors.border,
-    },
-    dividerText: {
-      color: colors.textMuted,
-      paddingHorizontal: Spacing.md,
-      fontSize: 14,
-    },
-    guestBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: colors.surface,
-      paddingVertical: Spacing.lg,
-      borderRadius: BorderRadius.lg,
+    guestButton: {
+      backgroundColor: colors.card,
+      paddingVertical: 16,
+      borderRadius: 14,
+      alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      gap: Spacing.sm,
-      marginBottom: Spacing.md,
     },
-    guestText: { 
-      color: colors.textSecondary, 
-      fontSize: 15 
+    guestButtonText: {
+      color: colors.textSecondary,
+      fontWeight: '700',
+      fontSize: 16,
     },
-    note: { 
-      color: colors.textMuted, 
-      textAlign: "center", 
-      fontSize: 12 
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 24,
+    },
+    footerText: {
+      color: colors.textSecondary,
+      fontSize: 15,
+    },
+    registerLink: {
+      color: colors.primary,
+      fontWeight: '700',
+      marginLeft: 6,
+      fontSize: 15,
+    },
+    infoBox: {
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      padding: 14,
+      marginTop: 24,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    infoText: {
+      color: colors.textSecondary,
+      flex: 1,
+      marginLeft: 10,
+      fontSize: 13,
+      lineHeight: 18,
     },
   });
 
   return (
-<<<<<<< HEAD
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.bg}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.container}>
-          <Text style={styles.title}>WorkTwin</Text>
-          <Text style={styles.subtitle}>Focus on what matters</Text>
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+            <Text style={styles.title}>WorkTwin</Text>
+            <Text style={styles.subtitle}>Focus on what matters</Text>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={colors.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            editable={!loading && !guestLoading}
-          />
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor={colors.textSecondary}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  editable={!loading && !guestLoading}
+                />
+              </View>
+            </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={colors.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!loading && !guestLoading}
-          />
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor={colors.textSecondary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!loading && !guestLoading}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                  disabled={loading || guestLoading}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleLogin}
-            disabled={loading || guestLoading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Login</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={handleLogin}
+              disabled={loading || guestLoading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleGuestLogin}
-            disabled={loading || guestLoading}
-          >
-            {guestLoading ? (
-              <ActivityIndicator color={colors.textSecondary} />
-            ) : (
-              <Text style={styles.secondaryButtonText}>Continue as Guest</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.guestButton}
+              onPress={handleGuestLogin}
+              disabled={loading || guestLoading}
+            >
+              {guestLoading ? (
+                <ActivityIndicator color={colors.textSecondary} />
+              ) : (
+                <Text style={styles.guestButtonText}>Continue as Guest</Text>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.link}>Don't have an account? Register</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account?</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                <Text style={styles.registerLink}>Register</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
+              <Text style={styles.infoText}>
+                Guest accounts are temporary. Register to keep your data safely.
+              </Text>
+            </View>
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-=======
-    <KeyboardAvoidingView
-      style={styles.bg}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>WorkTwin</Text>
-          <Text style={styles.sub}>Focus smarter. Track better.</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome Back</Text>
-          
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              editable={!busy}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              editable={!busy}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon} disabled={busy}>
-              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.forgotPassword} disabled={busy}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, busy && styles.disabled]}
-            onPress={onLogin}
-            disabled={busy}
-          >
-            {busy ? (
-              <ActivityIndicator color={colors.text} />
-            ) : (
-              <Text style={styles.primaryText}>Login</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={() => navigation.navigate("Register")}
-            disabled={busy}
-          >
-            <Text style={styles.secondaryText}>
-              Don't have an account? <Text style={styles.highlight}>Register</Text>
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.guestBtn, busy && styles.disabled]} 
-            onPress={onGuest} 
-            disabled={busy}
-          >
-            <Ionicons name="person-outline" size={20} color={colors.textSecondary} />
-            <Text style={styles.guestText}>Continue as Guest</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.note}>
-            Guest mode is temporary (15 days)
-          </Text>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
   );
 }

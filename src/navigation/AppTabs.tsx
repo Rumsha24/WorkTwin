@@ -23,8 +23,9 @@ function SettingsStackScreen() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.card },
         headerTintColor: colors.text,
-        headerTitleStyle: { color: colors.text },
+        headerTitleStyle: { color: colors.text, fontWeight: '600' },
         headerBackTitle: 'Back',
+        headerShadowVisible: false,
       }}
     >
       <SettingsStack.Screen
@@ -35,12 +36,12 @@ function SettingsStackScreen() {
       <SettingsStack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        options={{ title: 'Profile', headerBackTitle: 'Settings' }}
       />
       <SettingsStack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
-        options={{ title: 'Change Password' }}
+        options={{ title: 'Change Password', headerBackTitle: 'Settings' }}
       />
     </SettingsStack.Navigator>
   );
@@ -53,12 +54,20 @@ export default function AppTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerStyle: { backgroundColor: colors.card },
-        headerTitleStyle: { color: colors.text },
+        headerTitleStyle: { color: colors.text, fontWeight: '600' },
+        headerShadowVisible: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
@@ -79,14 +88,30 @@ export default function AppTabs() {
         },
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Tasks" component={TaskListScreen} />
-      <Tab.Screen name="Timer" component={TimerScreen} />
-      <Tab.Screen name="Insights" component={InsightsScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ title: 'Home' }}
+      />
+      <Tab.Screen
+        name="Tasks"
+        component={TaskListScreen}
+        options={{ title: 'Tasks' }}
+      />
+      <Tab.Screen
+        name="Timer"
+        component={TimerScreen}
+        options={{ title: 'Focus' }}
+      />
+      <Tab.Screen
+        name="Insights"
+        component={InsightsScreen}
+        options={{ title: 'Insights' }}
+      />
       <Tab.Screen
         name="Settings"
         component={SettingsStackScreen}
-        options={{ headerShown: false }}
+        options={{ headerShown: false, title: 'Settings' }}
       />
     </Tab.Navigator>
   );

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -10,19 +9,21 @@ import {
   ScrollView,
   Modal,
   Linking,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../services/firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signOut } from 'firebase/auth';
+
+import { auth } from '../../services/firebaseConfig';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
 import { clearAllData } from '../../utils/storage';
 import { exportService } from '../../services/exportService';
 import { haptics } from '../../utils/haptics';
-import * as DocumentPicker from 'expo-document-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -31,7 +32,6 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = useState(true);
   const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
-  const [appVersion] = useState('2.0.0');
 
   const email = auth.currentUser?.isAnonymous
     ? 'Guest User'
@@ -55,11 +55,13 @@ export default function SettingsScreen() {
   const handleNotificationToggle = async (value: boolean) => {
     haptics.switch();
     setNotifications(value);
+
     try {
       await AsyncStorage.setItem('notifications_enabled', value.toString());
-      Alert.alert('Notifications', value ? 'Notifications enabled' : 'Notifications disabled', [
-        { text: 'OK' },
-      ]);
+      Alert.alert(
+        'Notifications',
+        value ? 'Notifications enabled' : 'Notifications disabled'
+      );
     } catch (error) {
       console.error('Error saving notification preference:', error);
     }
@@ -73,9 +75,14 @@ export default function SettingsScreen() {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          haptics.medium();
-          await clearAllData();
-          await signOut(auth);
+          try {
+            haptics.medium();
+            await clearAllData();
+            await signOut(auth);
+          } catch (error) {
+            console.error('Logout error:', error);
+            Alert.alert('Error', 'Failed to logout');
+          }
         },
       },
     ]);
@@ -85,70 +92,25 @@ export default function SettingsScreen() {
     haptics.warning();
     Alert.alert(
       'Clear Data',
-      'This will delete all your tasks and focus sessions. This action cannot be undone.',
+      'This will delete all your local tasks and focus sessions. This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear',
           style: 'destructive',
           onPress: async () => {
-            haptics.heavy();
-            const success = await clearAllData();
-            if (success) {
-              haptics.success();
-              Alert.alert('Success', 'All local data has been cleared');
-=======
-// src/screens/Settings/SettingsScreen.tsx
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { signOut } from "firebase/auth";
-import { auth } from "../../services/firebaseConfig";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../context/ThemeContext";
-import { Spacing, BorderRadius, Typography, Shadows } from "../../theme/worktwinTheme";
-import { clearAllData } from "../../utils/storage";
-
-export default function SettingsScreen() {
-  const { colors, isDarkMode, toggleTheme } = useTheme();
-  const [notifications, setNotifications] = useState(true);
-  
-  const email = auth.currentUser?.isAnonymous
-    ? "Guest User"
-    : auth.currentUser?.email ?? "Unknown";
-
-  const handleLogout = () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            await clearAllData();
-            await signOut(auth);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleClearData = () => {
-    Alert.alert(
-      "Clear Data",
-      "This will delete all your tasks and focus sessions. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: async () => {
-            const success = await clearAllData();
-            if (success) {
-              Alert.alert("Success", "All local data has been cleared");
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
+            try {
+              haptics.heavy();
+              const success = await clearAllData();
+              if (success) {
+                haptics.success();
+                Alert.alert('Success', 'All local data has been cleared');
+              } else {
+                Alert.alert('Error', 'Failed to clear data');
+              }
+            } catch (error) {
+              console.error('Clear data error:', error);
+              Alert.alert('Error', 'Failed to clear data');
             }
           },
         },
@@ -156,7 +118,6 @@ export default function SettingsScreen() {
     );
   };
 
-<<<<<<< HEAD
   const handleExportData = () => {
     haptics.medium();
     Alert.alert('Export Data', 'Choose export format', [
@@ -164,22 +125,34 @@ export default function SettingsScreen() {
       {
         text: 'JSON',
         onPress: async () => {
-          haptics.medium();
-          const path = await exportService.exportData('json');
-          if (path) {
-            haptics.success();
-            Alert.alert('Success', 'Data exported successfully');
+          try {
+            const path = await exportService.exportData('json');
+            if (path) {
+              haptics.success();
+              Alert.alert('Success', 'Data exported successfully');
+            } else {
+              Alert.alert('Error', 'Export failed');
+            }
+          } catch (error) {
+            console.error('JSON export error:', error);
+            Alert.alert('Error', 'Export failed');
           }
         },
       },
       {
         text: 'CSV',
         onPress: async () => {
-          haptics.medium();
-          const path = await exportService.exportData('csv');
-          if (path) {
-            haptics.success();
-            Alert.alert('Success', 'Data exported successfully');
+          try {
+            const path = await exportService.exportData('csv');
+            if (path) {
+              haptics.success();
+              Alert.alert('Success', 'Data exported successfully');
+            } else {
+              Alert.alert('Error', 'Export failed');
+            }
+          } catch (error) {
+            console.error('CSV export error:', error);
+            Alert.alert('Error', 'Export failed');
           }
         },
       },
@@ -188,6 +161,7 @@ export default function SettingsScreen() {
 
   const handleImportData = async () => {
     haptics.medium();
+
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/json',
@@ -196,7 +170,6 @@ export default function SettingsScreen() {
 
       if (result.canceled) return;
 
-      haptics.medium();
       const success = await exportService.importFromFile(result.assets[0].uri);
 
       if (success) {
@@ -208,7 +181,7 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       haptics.error();
-      console.error('Error importing:', error);
+      console.error('Error importing data:', error);
       Alert.alert('Error', 'Failed to import data');
     }
   };
@@ -223,30 +196,30 @@ export default function SettingsScreen() {
     setAboutModalVisible(true);
   };
 
-  const handleContactSupport = () => {
-    Linking.openURL('mailto:support@worktwin.com');
-    setHelpModalVisible(false);
+  const handleContactSupport = async () => {
+    try {
+      await Linking.openURL('mailto:support@worktwin.com');
+    } catch {
+      Alert.alert('Error', 'Unable to open email app');
+    }
   };
 
-  const handleVisitWebsite = () => {
-    Linking.openURL('https://www.worktwin.com');
-    setHelpModalVisible(false);
+  const handleVisitWebsite = async () => {
+    try {
+      await Linking.openURL('https://www.worktwin.com');
+    } catch {
+      Alert.alert('Error', 'Unable to open website');
+    }
   };
 
-=======
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
   const styles = StyleSheet.create({
     bg: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, padding: Spacing.lg },
     title: { ...Typography.h1, color: colors.text, marginBottom: Spacing.lg },
+
     profileCard: {
-<<<<<<< HEAD
       flexDirection: 'row',
       alignItems: 'center',
-=======
-      flexDirection: "row",
-      alignItems: "center",
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.card,
       borderRadius: BorderRadius.xl,
       padding: Spacing.lg,
@@ -254,7 +227,6 @@ export default function SettingsScreen() {
       ...Shadows.small,
     },
     profileInfo: { marginLeft: Spacing.lg, flex: 1 },
-<<<<<<< HEAD
     profileName: {
       ...Typography.body,
       fontWeight: '600',
@@ -268,72 +240,46 @@ export default function SettingsScreen() {
       paddingVertical: Spacing.xs,
       borderRadius: BorderRadius.round,
       alignSelf: 'flex-start',
-=======
-    profileName: { ...Typography.body, fontWeight: "600", color: colors.text, marginBottom: Spacing.xs },
-    profileBadge: {
-      ...Typography.caption,
-      backgroundColor: colors.primary + "20",
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-      borderRadius: BorderRadius.round,
-      alignSelf: "flex-start",
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       color: colors.primary,
     },
+
     section: { marginBottom: Spacing.xl },
-    sectionTitle: { ...Typography.h3, color: colors.text, marginBottom: Spacing.md },
+    sectionTitle: {
+      ...Typography.h3,
+      color: colors.text,
+      marginBottom: Spacing.md,
+    },
+
     settingItem: {
-<<<<<<< HEAD
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-=======
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.card,
       borderRadius: BorderRadius.lg,
       padding: Spacing.lg,
       marginBottom: Spacing.sm,
       ...Shadows.small,
     },
-<<<<<<< HEAD
     settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     settingText: { ...Typography.body, color: colors.text },
+
     menuItem: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-=======
-    settingLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-    settingText: { ...Typography.body, color: colors.text },
-    menuItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.card,
       borderRadius: BorderRadius.lg,
       padding: Spacing.lg,
       marginBottom: Spacing.sm,
       ...Shadows.small,
     },
-<<<<<<< HEAD
     menuLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     menuText: { ...Typography.body, color: colors.textSecondary },
+
     logoutBtn: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-=======
-    menuLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-    menuText: { ...Typography.body, color: colors.textSecondary },
-    logoutBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
       backgroundColor: colors.danger,
       borderRadius: BorderRadius.lg,
       padding: Spacing.lg,
@@ -342,11 +288,9 @@ export default function SettingsScreen() {
       marginBottom: Spacing.lg,
       ...Shadows.small,
     },
-<<<<<<< HEAD
     logoutText: { color: colors.text, fontSize: 18, fontWeight: '600' },
     version: { textAlign: 'center', color: colors.textMuted, fontSize: 12 },
 
-    // Modal Styles
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
@@ -355,11 +299,11 @@ export default function SettingsScreen() {
       padding: Spacing.lg,
     },
     modalContent: {
+      width: '100%',
+      maxHeight: '80%',
       backgroundColor: colors.card,
       borderRadius: BorderRadius.xl,
       padding: Spacing.xl,
-      width: '100%',
-      maxHeight: '80%',
       ...Shadows.medium,
     },
     modalHeader: {
@@ -368,12 +312,9 @@ export default function SettingsScreen() {
       alignItems: 'center',
       marginBottom: Spacing.lg,
     },
-    modalTitle: { ...Typography.h2, color: colors.text },
-    closeButton: {
-      padding: Spacing.xs,
-    },
-    modalBody: {
-      marginBottom: Spacing.lg,
+    modalTitle: {
+      ...Typography.h2,
+      color: colors.text,
     },
     modalText: {
       ...Typography.body,
@@ -381,46 +322,27 @@ export default function SettingsScreen() {
       marginBottom: Spacing.md,
       lineHeight: 22,
     },
-    modalSection: {
-      marginBottom: Spacing.lg,
-    },
-    modalSectionTitle: {
-      ...Typography.h3,
-      color: colors.text,
-      marginBottom: Spacing.sm,
-    },
-    bulletPoint: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: Spacing.sm,
-      gap: Spacing.sm,
-    },
-    bulletText: {
-      ...Typography.body,
-      color: colors.textSecondary,
-      flex: 1,
-    },
-    actionButton: {
+    modalButton: {
       backgroundColor: colors.primary,
       paddingVertical: Spacing.lg,
       borderRadius: BorderRadius.lg,
       alignItems: 'center',
       marginTop: Spacing.md,
     },
-    actionButtonText: {
-      ...Typography.button,
-      color: colors.text,
-    },
-    secondaryActionButton: {
+    modalButtonSecondary: {
       backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
       paddingVertical: Spacing.lg,
       borderRadius: BorderRadius.lg,
       alignItems: 'center',
       marginTop: Spacing.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
-    secondaryActionButtonText: {
+    modalButtonText: {
+      ...Typography.button,
+      color: colors.text,
+    },
+    modalButtonSecondaryText: {
       ...Typography.button,
       color: colors.textSecondary,
     },
@@ -437,10 +359,25 @@ export default function SettingsScreen() {
       ...Typography.body,
       color: colors.textSecondary,
     },
-=======
-    logoutText: { color: colors.text, fontSize: 18, fontWeight: "600" },
-    version: { textAlign: "center", color: colors.textMuted, fontSize: 12 },
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
+    bulletPoint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+      gap: Spacing.sm,
+    },
+    bulletText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      flex: 1,
+    },
+    modalSection: {
+      marginBottom: Spacing.lg,
+    },
+    modalSectionTitle: {
+      ...Typography.h3,
+      color: colors.text,
+      marginBottom: Spacing.sm,
+    },
   });
 
   return (
@@ -449,8 +386,6 @@ export default function SettingsScreen() {
         <View style={styles.container}>
           <Text style={styles.title}>Settings</Text>
 
-<<<<<<< HEAD
-          {/* Profile Card */}
           <TouchableOpacity
             style={styles.profileCard}
             onPress={() => {
@@ -458,18 +393,11 @@ export default function SettingsScreen() {
               if (auth.currentUser?.isAnonymous) {
                 Alert.alert(
                   'Guest Account',
-                  'Guest users cannot access profile. Please register to create a profile.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Register',
-                      onPress: () => navigation.navigate('Auth', { screen: 'Register' }),
-                    },
-                  ]
+                  'Guest users cannot open profile. Please register first.'
                 );
-              } else {
-                navigation.navigate('Profile');
+                return;
               }
+              navigation.navigate('Profile');
             }}
           >
             <Ionicons name="person-circle" size={60} color={colors.primary} />
@@ -482,25 +410,9 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
-          {/* Preferences Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Preferences</Text>
 
-=======
-          <View style={styles.profileCard}>
-            <Ionicons name="person-circle" size={60} color={colors.primary} />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{email}</Text>
-              <Text style={[styles.profileBadge, { color: colors.primary }]}>
-                {auth.currentUser?.isAnonymous ? "Guest Account" : "Registered User"}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
-            
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="notifications-outline" size={22} color={colors.primary} />
@@ -508,31 +420,24 @@ export default function SettingsScreen() {
               </View>
               <Switch
                 value={notifications}
-<<<<<<< HEAD
                 onValueChange={handleNotificationToggle}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.text}
                 ios_backgroundColor={colors.border}
-=======
-                onValueChange={setNotifications}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.text}
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               />
             </View>
 
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
-<<<<<<< HEAD
-                <Ionicons name={isDarkMode ? 'moon' : 'sunny-outline'} size={22} color={colors.primary} />
-=======
-                <Ionicons name={isDarkMode ? "moon" : "sunny-outline"} size={22} color={colors.primary} />
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny-outline'}
+                  size={22}
+                  color={colors.primary}
+                />
                 <Text style={styles.settingText}>Dark Mode</Text>
               </View>
               <Switch
                 value={isDarkMode}
-<<<<<<< HEAD
                 onValueChange={() => {
                   haptics.switch();
                   toggleTheme();
@@ -540,38 +445,23 @@ export default function SettingsScreen() {
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.text}
                 ios_backgroundColor={colors.border}
-=======
-                onValueChange={toggleTheme}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.text}
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               />
             </View>
           </View>
 
-<<<<<<< HEAD
-          {/* Security Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Security</Text>
 
             <TouchableOpacity
-              style={[styles.menuItem, { opacity: auth.currentUser?.isAnonymous ? 0.5 : 1 }]}
+              style={[
+                styles.menuItem,
+                auth.currentUser?.isAnonymous ? { opacity: 0.5 } : null,
+              ]}
+              disabled={auth.currentUser?.isAnonymous}
               onPress={() => {
                 haptics.light();
-                if (auth.currentUser?.isAnonymous) {
-                  Alert.alert(
-                    'Guest Account',
-                    'Please register to change your password',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Register', onPress: () => navigation.navigate('Auth', { screen: 'Register' }) },
-                    ]
-                  );
-                } else {
-                  navigation.navigate('ChangePassword');
-                }
+                navigation.navigate('ChangePassword');
               }}
-              disabled={auth.currentUser?.isAnonymous}
             >
               <View style={styles.menuLeft}>
                 <Ionicons name="lock-closed-outline" size={22} color={colors.primary} />
@@ -581,7 +471,6 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Data Management Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Data Management</Text>
 
@@ -601,32 +490,21 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
-=======
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data Management</Text>
-            
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
             <TouchableOpacity style={styles.menuItem} onPress={handleClearData}>
               <View style={styles.menuLeft}>
                 <Ionicons name="trash-outline" size={22} color={colors.danger} />
-                <Text style={[styles.menuText, { color: colors.danger }]}>Clear Local Data</Text>
+                <Text style={[styles.menuText, { color: colors.danger }]}>
+                  Clear Local Data
+                </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
-<<<<<<< HEAD
-          {/* Support Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Support</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleHelpSupport}>
-=======
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Support</Text>
-            
-            <TouchableOpacity style={styles.menuItem}>
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               <View style={styles.menuLeft}>
                 <Ionicons name="help-circle-outline" size={22} color={colors.textSecondary} />
                 <Text style={styles.menuText}>Help & Support</Text>
@@ -634,89 +512,112 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
-<<<<<<< HEAD
             <TouchableOpacity style={styles.menuItem} onPress={handleAbout}>
-=======
-            <TouchableOpacity style={styles.menuItem}>
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
               <View style={styles.menuLeft}>
-                <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
+                <Ionicons
+                  name="information-circle-outline"
+                  size={22}
+                  color={colors.textSecondary}
+                />
                 <Text style={styles.menuText}>About WorkTwin</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
-<<<<<<< HEAD
-          {/* Logout Button */}
-=======
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={22} color={colors.text} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
 
-<<<<<<< HEAD
-          <Text style={styles.version}>Version {appVersion}</Text>
+          <Text style={styles.version}>Version 2.0.0</Text>
         </View>
       </ScrollView>
 
       {/* Help & Support Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={helpModalVisible}
-        onRequestClose={() => setHelpModalVisible(false)}
-      >
+      <Modal visible={helpModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Help & Support</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setHelpModalVisible(false)}>
+              <Text style={styles.modalTitle}>✨ Help & Support</Text>
+              <TouchableOpacity onPress={() => setHelpModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalBody}>
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Frequently Asked Questions</Text>
-
-                  <View style={styles.bulletPoint}>
-                    <Ionicons name="help-circle" size={20} color={colors.primary} />
-                    <Text style={styles.bulletText}>How do I add a task? Tap the + button on Tasks screen</Text>
-                  </View>
-
-                  <View style={styles.bulletPoint}>
-                    <Ionicons name="help-circle" size={20} color={colors.primary} />
-                    <Text style={styles.bulletText}>How do I start a timer? Go to Timer screen and tap Start</Text>
-                  </View>
-
-                  <View style={styles.bulletPoint}>
-                    <Ionicons name="help-circle" size={20} color={colors.primary} />
-                    <Text style={styles.bulletText}>How do I export my data? Settings → Data Management → Export</Text>
-                  </View>
-
-                  <View style={styles.bulletPoint}>
-                    <Ionicons name="help-circle" size={20} color={colors.primary} />
-                    <Text style={styles.bulletText}>How do I change theme? Settings → Preferences → Dark Mode</Text>
-                  </View>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Contact Us</Text>
-                  <Text style={styles.modalText}>
-                    Having issues? We're here to help! Reach out to our support team.
+              <View style={styles.modalSection}>
+                <View style={{ alignItems: 'center', marginBottom: Spacing.lg }}>
+                  <Ionicons name="bulb-outline" size={60} color={colors.primary} />
+                  <Text style={[styles.modalTitle, { fontSize: 24, marginTop: Spacing.sm }]}>
+                    How can we help?
                   </Text>
-
-                  <TouchableOpacity style={styles.actionButton} onPress={handleContactSupport}>
-                    <Text style={styles.actionButtonText}>Email Support</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.secondaryActionButton} onPress={handleVisitWebsite}>
-                    <Text style={styles.secondaryActionButtonText}>Visit Website</Text>
-                  </TouchableOpacity>
+                  <Text style={[styles.modalText, { textAlign: 'center' }]}>
+                    Everything you need to know about WorkTwin
+                  </Text>
                 </View>
+
+                <Text style={styles.modalSectionTitle}>📌 Frequently Asked Questions</Text>
+
+                <View style={styles.bulletPoint}>
+                  <Ionicons name="help-circle" size={20} color={colors.primary} />
+                  <Text style={styles.bulletText}>
+                    <Text style={{ fontWeight: '600' }}>How do I add a task?</Text>{'\n'}
+                    Tap the + button on the Tasks screen, fill in the details, and save. You can add categories, priorities, due dates, and even set reminders!
+                  </Text>
+                </View>
+
+                <View style={styles.bulletPoint}>
+                  <Ionicons name="help-circle" size={20} color={colors.primary} />
+                  <Text style={styles.bulletText}>
+                    <Text style={{ fontWeight: '600' }}>How does the focus timer work?</Text>{'\n'}
+                    Select your desired focus duration, optionally link it to a task, and tap Start. You can log interruptions and rate your productivity after each session.
+                  </Text>
+                </View>
+
+                <View style={styles.bulletPoint}>
+                  <Ionicons name="help-circle" size={20} color={colors.primary} />
+                  <Text style={styles.bulletText}>
+                    <Text style={{ fontWeight: '600' }}>Can I use the app offline?</Text>{'\n'}
+                    Yes! WorkTwin works offline. Your tasks and focus sessions are saved locally and automatically sync when you're back online.
+                  </Text>
+                </View>
+
+                <View style={styles.bulletPoint}>
+                  <Ionicons name="help-circle" size={20} color={colors.primary} />
+                  <Text style={styles.bulletText}>
+                    <Text style={{ fontWeight: '600' }}>How do I export my data?</Text>{'\n'}
+                    Go to Settings → Data Management → Export Data, and choose JSON or CSV format. Your data will be saved and shared via the iOS share sheet.
+                  </Text>
+                </View>
+
+                <View style={styles.bulletPoint}>
+                  <Ionicons name="help-circle" size={20} color={colors.primary} />
+                  <Text style={styles.bulletText}>
+                    <Text style={{ fontWeight: '600' }}>How do I change the theme?</Text>{'\n'}
+                    Go to Settings → Preferences → Dark Mode toggle. You can switch between light and dark themes anytime.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>💬 Need More Help?</Text>
+                <Text style={styles.modalText}>
+                  Our support team is here to assist you. Whether you have questions, feedback, or need technical support, we're just an email away.
+                </Text>
+
+                <TouchableOpacity style={styles.modalButton} onPress={handleContactSupport}>
+                  <Ionicons name="mail-outline" size={20} color={colors.text} style={{ marginRight: Spacing.sm }} />
+                  <Text style={styles.modalButtonText}>Email Support</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalButtonSecondary}
+                  onPress={handleVisitWebsite}
+                >
+                  <Ionicons name="globe-outline" size={20} color={colors.textSecondary} style={{ marginRight: Spacing.sm }} />
+                  <Text style={styles.modalButtonSecondaryText}>Visit Website</Text>
+                </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
@@ -724,92 +625,103 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* About Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={aboutModalVisible}
-        onRequestClose={() => setAboutModalVisible(false)}
-      >
+      <Modal visible={aboutModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>About WorkTwin</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setAboutModalVisible(false)}>
+              <Text style={styles.modalTitle}>ℹ️ About WorkTwin</Text>
+              <TouchableOpacity onPress={() => setAboutModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.modalBody}>
+              <View style={styles.modalSection}>
                 <View style={{ alignItems: 'center', marginBottom: Spacing.xl }}>
                   <Ionicons name="timer-outline" size={80} color={colors.primary} />
                   <Text style={[styles.modalTitle, { fontSize: 32, marginTop: Spacing.sm }]}>WorkTwin</Text>
-                  <Text style={[styles.modalText, { textAlign: 'center' }]}>Version {appVersion}</Text>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Our Mission</Text>
-                  <Text style={styles.modalText}>
-                    WorkTwin helps you stay focused and productive with smart task management and focus timers.
-                    Track your progress, analyze your productivity, and achieve your goals.
-                  </Text>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Key Features</Text>
-
-                  <View style={styles.featureList}>
-                    <View style={styles.featureItem}>
-                      <Ionicons name="checkbox-outline" size={20} color={colors.success} />
-                      <Text style={styles.featureText}>Task Management with categories & priorities</Text>
-                    </View>
-
-                    <View style={styles.featureItem}>
-                      <Ionicons name="timer-outline" size={20} color={colors.primary} />
-                      <Text style={styles.featureText}>Focus Timer with interruptions tracking</Text>
-                    </View>
-
-                    <View style={styles.featureItem}>
-                      <Ionicons name="trending-up" size={20} color={colors.accent} />
-                      <Text style={styles.featureText}>Productivity Insights & Analytics</Text>
-                    </View>
-
-                    <View style={styles.featureItem}>
-                      <Ionicons name="cloud-offline-outline" size={20} color={colors.warning} />
-                      <Text style={styles.featureText}>Offline Support with auto-sync</Text>
-                    </View>
-
-                    <View style={styles.featureItem}>
-                      <Ionicons name="color-palette-outline" size={20} color={colors.secondary} />
-                      <Text style={styles.featureText}>Light & Dark Theme</Text>
-                    </View>
-
-                    <View style={styles.featureItem}>
-                      <Ionicons name="download-outline" size={20} color={colors.info} />
-                      <Text style={styles.featureText}>Export/Import Data (JSON/CSV)</Text>
-                    </View>
+                  <Text style={[styles.modalText, { textAlign: 'center' }]}>Version 2.0.0</Text>
+                  <View style={[styles.profileBadge, { marginTop: Spacing.md }]}>
+                    <Text style={{ color: colors.primary }}>✨ Productivity Reimagined</Text>
                   </View>
                 </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Developer</Text>
-                  <Text style={styles.modalText}>Created with ❤️ by Team 3</Text>
-                  <Text style={[styles.modalText, { marginTop: Spacing.xs }]}>© 2026 WorkTwin. All rights reserved.</Text>
+                <Text style={styles.modalSectionTitle}>🎯 Our Mission</Text>
+                <Text style={styles.modalText}>
+                  WorkTwin is designed to help you achieve more by combining powerful task management with focused work sessions. We believe that productivity isn't just about doing more — it's about doing what matters with intention and clarity.
+                </Text>
+
+                <Text style={styles.modalSectionTitle}>⭐ Key Features</Text>
+                <View style={styles.featureList}>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="checkbox-outline" size={20} color={colors.success} />
+                    <Text style={styles.featureText}>Smart Task Management with categories & priorities</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="timer-outline" size={20} color={colors.primary} />
+                    <Text style={styles.featureText}>Focus Timer with real-time interruption tracking</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="trending-up" size={20} color={colors.accent} />
+                    <Text style={styles.featureText}>Productivity Insights & Visual Analytics</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="cloud-offline-outline" size={20} color={colors.warning} />
+                    <Text style={styles.featureText}>Offline Support with Auto-Sync</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="color-palette-outline" size={20} color={colors.secondary} />
+                    <Text style={styles.featureText}>Light & Dark Theme Support</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="download-outline" size={20} color={colors.info} />
+                    <Text style={styles.featureText}>Export/Import Data (JSON & CSV)</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="notifications-outline" size={20} color={colors.warning} />
+                    <Text style={styles.featureText}>Smart Reminders & Notifications</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="analytics-outline" size={20} color={colors.accent} />
+                    <Text style={styles.featureText}>Detailed Session History & Trends</Text>
+                  </View>
                 </View>
 
-                <TouchableOpacity style={styles.actionButton} onPress={() => setAboutModalVisible(false)}>
-                  <Text style={styles.actionButtonText}>Close</Text>
+                <Text style={styles.modalSectionTitle}>📱 Built With</Text>
+                <Text style={styles.modalText}>
+                  • React Native & Expo • Firebase Authentication & Firestore • React Navigation • AsyncStorage • React Native Chart Kit • Expo Haptics
+                </Text>
+
+                <Text style={styles.modalSectionTitle}>👨‍💻 Developer</Text>
+                <Text style={styles.modalText}>Created with ❤️ by Team 3 — Capstone Project</Text>
+                <Text style={[styles.modalText, { marginTop: Spacing.xs }]}>© 2026 WorkTwin. All rights reserved.</Text>
+
+                <View style={[styles.featureList, { marginTop: Spacing.md }]}>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="star" size={16} color={colors.warning} />
+                    <Text style={styles.featureText}>Rate us on the App Store</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="git-branch" size={16} color={colors.primary} />
+                    <Text style={styles.featureText}>Open Source on GitHub</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <Ionicons name="heart" size={16} color={colors.danger} />
+                    <Text style={styles.featureText}>Made with passion for productivity</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setAboutModalVisible(false)}
+                >
+                  <Text style={styles.modalButtonText}>✨ Discover Your Focus ✨</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
-=======
-          <Text style={styles.version}>Version 1.0.0</Text>
-        </View>
-      </ScrollView>
->>>>>>> 6f54f8ac3d4b22949ba7c8c7b5ce04f3e9fef90b
     </SafeAreaView>
   );
 }

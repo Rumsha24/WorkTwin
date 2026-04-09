@@ -17,7 +17,7 @@ interface ScheduledNotification {
   taskId?: string;
   taskTitle: string;
   time: number;
-  type: 'task' | 'session' | 'daily';
+  type: 'task' | 'session' | 'daily' | 'medicine';
 }
 
 class NotificationService {
@@ -67,6 +67,13 @@ class NotificationService {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#EC4899',
+        });
+
+        await Notifications.setNotificationChannelAsync('health', {
+          name: 'Health Reminders',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#22C55E',
         });
       }
 
@@ -176,9 +183,73 @@ class NotificationService {
         },
       });
 
+      await this.storeNotification({
+        id: notificationId,
+        taskTitle: 'Daily Summary',
+        time: Date.now(),
+        type: 'daily',
+      });
+
       return notificationId;
     } catch (error) {
       console.error('Error scheduling daily summary:', error);
+      return null;
+    }
+  }
+
+  async scheduleMedicineReminder(
+    medicineName: string,
+    hour: number,
+    minute: number,
+    dosage?: string
+  ): Promise<string | null> {
+    try {
+      const safeHour = Math.max(0, Math.min(23, hour));
+      const safeMinute = Math.max(0, Math.min(59, minute));
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '💊 Medicine Reminder',
+          subtitle: medicineName,
+          body: dosage
+            ? `Time to take ${dosage} of ${medicineName}`
+            : `Time to take ${medicineName}`,
+          data: {
+            type: 'medicine',
+            medicineName,
+            dosage: dosage || '',
+            screen: 'Dashboard',
+          },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: safeHour,
+          minute: safeMinute,
+        },
+      });
+
+      const now = new Date();
+      const scheduledTime = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        safeHour,
+        safeMinute,
+        0,
+        0
+      ).getTime();
+
+      await this.storeNotification({
+        id: notificationId,
+        taskTitle: medicineName,
+        time: scheduledTime,
+        type: 'medicine',
+      });
+
+      return notificationId;
+    } catch (error) {
+      console.error('Error scheduling medicine reminder:', error);
       return null;
     }
   }

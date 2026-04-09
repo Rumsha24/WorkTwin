@@ -1,0 +1,160 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
+import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
+
+interface MentalHealthModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (answers: Record<string, string>) => void;
+}
+
+const questions = [
+  { id: 'mood', question: 'How would you rate your mood today?', emoji: '😊', options: ['😊 Great', '🙂 Good', '😐 Neutral', '😔 Low', '😢 Very Low'] },
+  { id: 'anxiety', question: 'How anxious have you felt?', emoji: '😰', options: ['None', 'Mild', 'Moderate', 'High', 'Severe'] },
+  { id: 'sleepQuality', question: 'How well did you sleep last night?', emoji: '😴', options: ['Excellent', 'Good', 'Fair', 'Poor', 'Very Poor'] },
+  { id: 'stress', question: 'What is your stress level?', emoji: '😫', options: ['Very Low', 'Low', 'Moderate', 'High', 'Very High'] },
+  { id: 'energy', question: 'How is your energy level?', emoji: '⚡', options: ['Very High', 'High', 'Normal', 'Low', 'Very Low'] },
+];
+
+export function MentalHealthModal({ visible, onClose, onSubmit }: MentalHealthModalProps) {
+  const { colors } = useTheme();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  const currentQuestion = questions[currentIndex];
+  const isLast = currentIndex === questions.length - 1;
+
+  const handleAnswer = (answer: string) => {
+    const newAnswers = { ...answers, [currentQuestion.id]: answer };
+    
+    if (isLast) {
+      onSubmit(newAnswers);
+      setAnswers({});
+      setCurrentIndex(0);
+    } else {
+      setAnswers(newAnswers);
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handleClose = () => {
+    setAnswers({});
+    setCurrentIndex(0);
+    onClose();
+  };
+
+  const styles = StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.xl,
+      width: '90%',
+      maxHeight: '80%',
+      ...Shadows.large,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: Spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    title: {
+      ...Typography.h2,
+      color: colors.text,
+      fontSize: 20,
+    },
+    closeButton: {
+      padding: Spacing.xs,
+    },
+    content: {
+      padding: Spacing.xl,
+    },
+    emoji: {
+      fontSize: 48,
+      textAlign: 'center',
+      marginBottom: Spacing.md,
+    },
+    question: {
+      ...Typography.h2,
+      color: colors.text,
+      fontSize: 20,
+      textAlign: 'center',
+      marginBottom: Spacing.xl,
+    },
+    optionsContainer: {
+      gap: Spacing.sm,
+    },
+    option: {
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    optionText: {
+      ...Typography.body,
+      color: colors.text,
+      textAlign: 'center',
+    },
+    progress: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: Spacing.xl,
+    },
+  });
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.title}>💚 Mental Health Check</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+              <Ionicons name="close" size={24} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.content}>
+              <Text style={styles.emoji}>{currentQuestion.emoji}</Text>
+              <Text style={styles.question}>{currentQuestion.question}</Text>
+              
+              <View style={styles.optionsContainer}>
+                {currentQuestion.options.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.option}
+                    onPress={() => handleAnswer(option)}
+                  >
+                    <Text style={styles.optionText}>{option}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.progress}>
+                {currentIndex + 1} of {questions.length}
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
