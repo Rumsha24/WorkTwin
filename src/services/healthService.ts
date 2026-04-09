@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { notificationService } from './NotificationService';
+import { notificationService } from './notificationService';
 
 export interface HealthMetrics {
   mentalHealthScore: number;
