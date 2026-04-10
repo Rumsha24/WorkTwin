@@ -12,7 +12,7 @@ import {
 } from './storage';
 
 export const DEMO_USER = {
-  name: 'Ayesha Khan',
+  name: 'Rumsha Ahmed',
   email: 'rumsha@worktwin.com',
   password: 'WorkTwin123!',
   gender: 'female' as const,
