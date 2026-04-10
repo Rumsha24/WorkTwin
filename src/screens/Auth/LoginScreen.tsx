@@ -23,12 +23,14 @@ import {
 } from 'firebase/auth';
 
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { haptics } from '../../utils/haptics';
 import { AuthLogo } from '../../components/common/AuthLogo';
 import { DEMO_USER, seedPresentationData } from '../../utils/demoData';
 
 export default function LoginScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const auth = getAuth();
 
   const [email, setEmail] = useState('');
@@ -287,7 +289,7 @@ export default function LoginScreen({ navigation }: any) {
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
+                <Text style={styles.loginButtonText}>{t('login')}</Text>
               )}
             </TouchableOpacity>
 
@@ -306,7 +308,7 @@ export default function LoginScreen({ navigation }: any) {
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account?</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.registerLink}>Register</Text>
+                <Text style={styles.registerLink}>{t('register')}</Text>
               </TouchableOpacity>
             </View>
             </View>

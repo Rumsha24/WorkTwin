@@ -8,9 +8,14 @@ interface MedicineReminder {
   id: string;
   name: string;
   time: string;
+  times?: string[];
   dosage: string;
+  days?: string[];
+  frequency?: 'once' | 'twice';
+  mealTiming?: 'before meal' | 'after meal';
   taken: boolean;
   notificationId?: string | null;
+  notificationIds?: string[];
 }
 
 interface SleepData {
@@ -303,17 +308,38 @@ export function useHealth() {
     return last7Days.map((day) => day.steps);
   };
 
-  const addMedicine = async (name: string, time: string, dosage: string): Promise<boolean> => {
+  const addMedicine = async (
+    name: string,
+    time: string,
+    dosage: string,
+    options?: {
+      times?: string[];
+      days?: string[];
+      frequency?: 'once' | 'twice';
+      mealTiming?: 'before meal' | 'after meal';
+    }
+  ): Promise<boolean> => {
     const { notificationService } = await import('../services/notificationService');
     const trimmedName = name.trim();
     const trimmedTime = time.trim();
     const trimmedDosage = dosage.trim();
+    const selectedTimes = (options?.times && options.times.length > 0 ? options.times : [trimmedTime]).map((item) =>
+      item.trim()
+    );
+    const selectedDays = options?.days && options.days.length > 0 ? options.days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     let notificationId: string | null = null;
+    let notificationIds: string[] = [];
 
     try {
-      const match = trimmedTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/);
-      if (match) {
+      const notificationsEnabled = await notificationService.initialize();
+      if (!notificationsEnabled) {
+        notificationIds = [];
+      }
+
+      const parseTime = (value: string) => {
+        const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/);
+        if (!match) return null;
         let hour = parseInt(match[1], 10);
         const minute = parseInt(match[2], 10);
         const suffix = match[3]?.toLowerCase();
@@ -321,12 +347,43 @@ export function useHealth() {
         if (suffix === 'pm' && hour < 12) hour += 12;
         if (suffix === 'am' && hour === 12) hour = 0;
 
+        return { hour, minute };
+      };
+
+      const weekdayMap: Record<string, number> = {
+        Sun: 1,
+        Mon: 2,
+        Tue: 3,
+        Wed: 4,
+        Thu: 5,
+        Fri: 6,
+        Sat: 7,
+      };
+
+      const parsedTimes = selectedTimes.map(parseTime).filter(Boolean) as Array<{ hour: number; minute: number }>;
+      const parsedDays = selectedDays.map((day) => weekdayMap[day]).filter(Boolean);
+
+      if (!notificationsEnabled) {
+        notificationIds = [];
+        notificationId = null;
+      } else if (parsedTimes.length > 1 || parsedDays.length < 7) {
+        notificationIds = await notificationService.scheduleMedicinePlan(
+          trimmedName,
+          parsedTimes,
+          parsedDays,
+          trimmedDosage,
+          options?.mealTiming
+        );
+        notificationId = notificationIds[0] || null;
+      } else if (parsedTimes.length === 1) {
         notificationId = await notificationService.scheduleMedicineReminder(
           trimmedName,
-          hour,
-          minute,
-          trimmedDosage
+          parsedTimes[0].hour,
+          parsedTimes[0].minute,
+          trimmedDosage,
+          options?.mealTiming
         );
+        notificationIds = notificationId ? [notificationId] : [];
       }
     } catch (error) {
       console.error('Error scheduling medicine reminder:', error);
@@ -336,9 +393,14 @@ export function useHealth() {
       id: Date.now().toString(),
       name: trimmedName,
       time: trimmedTime,
+      times: selectedTimes,
       dosage: trimmedDosage,
+      days: selectedDays,
+      frequency: options?.frequency || (selectedTimes.length > 1 ? 'twice' : 'once'),
+      mealTiming: options?.mealTiming,
       taken: false,
       notificationId,
+      notificationIds,
     };
 
     const nextData = {
@@ -365,9 +427,15 @@ export function useHealth() {
     const { notificationService } = await import('../services/notificationService');
     const medicine = healthData.medicines.find((med) => med.id === id);
 
-    if (medicine?.notificationId) {
+    const idsToCancel = medicine?.notificationIds?.length
+      ? medicine.notificationIds
+      : medicine?.notificationId
+      ? [medicine.notificationId]
+      : [];
+
+    if (idsToCancel.length > 0) {
       try {
-        await notificationService.cancelNotification(medicine.notificationId);
+        await Promise.all(idsToCancel.map((id) => notificationService.cancelNotification(id)));
       } catch (error) {
         console.error('Error cancelling medicine reminder:', error);
       }

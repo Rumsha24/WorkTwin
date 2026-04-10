@@ -240,11 +240,49 @@ export const formatDuration = (seconds: number): string => {
 
 export const clearAllData = async (): Promise<boolean> => {
   try {
-    await AsyncStorage.multiRemove([
-      getScopedStorageKey(TASKS_KEY),
-      getScopedStorageKey(FOCUS_KEY),
-      getScopedStorageKey(PRODUCTIVITY_KEY),
-    ]);
+    const allKeys = await AsyncStorage.getAllKeys();
+    const scopedPrefix = activeStorageUserId ? `:${activeStorageUserId}` : '';
+    const removablePrefixes = [
+      TASKS_KEY,
+      FOCUS_KEY,
+      PRODUCTIVITY_KEY,
+      'mentalHealthScore',
+      'lastMentalCheck',
+      'sleepData',
+      'stepData',
+      'medicines',
+      'periodLogs',
+      'lastPeriodDate',
+      'profileGender',
+      'profile',
+      'waterIntake',
+      'wellnessReminder',
+      'worktwin_notifications',
+    ];
+
+    const removableKeys = allKeys.filter((key) => {
+      if (
+        key === TASKS_KEY ||
+        key === FOCUS_KEY ||
+        key === PRODUCTIVITY_KEY ||
+        key.startsWith(`${TASKS_KEY}:`) ||
+        key.startsWith(`${FOCUS_KEY}:`) ||
+        key.startsWith(`${PRODUCTIVITY_KEY}:`)
+      ) {
+        return true;
+      }
+
+      return removablePrefixes.some((prefix) => {
+        if (scopedPrefix) {
+          return key === `${prefix}${scopedPrefix}` || key.startsWith(`${prefix}:${activeStorageUserId}`);
+        }
+        return key === prefix || key.startsWith(`${prefix}:`);
+      });
+    });
+
+    if (removableKeys.length > 0) {
+      await AsyncStorage.multiRemove(removableKeys);
+    }
     return true;
   } catch (error) {
     console.error('clearAllData error:', error);

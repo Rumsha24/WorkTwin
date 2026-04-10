@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Task } from '../utils/types';
 import { firestoreService } from '../services/firestoreService';
 import { offlineService } from '../services/offlineService';
@@ -17,6 +18,12 @@ export function useFirestoreTasks() {
   useEffect(() => {
     loadTasksFromStorage();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTasksFromStorage();
+    }, [])
+  );
 
   useEffect(() => {
     if (user && isOnline) {

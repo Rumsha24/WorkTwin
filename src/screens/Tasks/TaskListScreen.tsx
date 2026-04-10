@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
 import { Task, TaskCategory, TaskPriority, CATEGORY_CONFIG } from '../../utils/types';
 import { useFirestoreTasks } from '../../hooks/useFirestoreTasks';
@@ -61,6 +62,7 @@ const taskTemplates: Array<{
 
 export default function TaskListScreen() {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const { tasks, loading, isOnline, addTask, updateTask, deleteTask } = useFirestoreTasks();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -116,6 +118,18 @@ export default function TaskListScreen() {
     setReminder(false);
     setReminderTime(null);
     setNotes('');
+  };
+
+  const formatPickerDate = (date: Date) =>
+    date.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const formatPickerTime = (date: Date) =>
+    date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const mergeReminderWithDueDate = (timeValue: Date, dateValue?: Date | null) => {
+    const next = new Date(dateValue || new Date());
+    next.setHours(timeValue.getHours(), timeValue.getMinutes(), 0, 0);
+    return next;
   };
 
   const handleAddTask = async () => {
@@ -183,6 +197,9 @@ export default function TaskListScreen() {
     setNotes(template.notes);
     setReminder(false);
     setDueDate(null);
+    setReminderTime(null);
+    setShowDatePicker(false);
+    setShowTimePicker(false);
     setModalVisible(true);
   };
 
@@ -550,7 +567,7 @@ export default function TaskListScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Tasks</Text>
+            <Text style={styles.title}>{t('tasks')}</Text>
 
             <View style={styles.syncInfo}>
               <Text style={styles.sub}>
@@ -585,7 +602,7 @@ export default function TaskListScreen() {
               }}
             >
               <Ionicons name="add" size={24} color={colors.text} />
-              <Text style={styles.addText}>Add</Text>
+              <Text style={styles.addText}>{t('add')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -594,7 +611,7 @@ export default function TaskListScreen() {
           <Ionicons name="search" size={20} color={colors.textSecondary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search tasks..."
+            placeholder={t('search_tasks')}
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -602,7 +619,7 @@ export default function TaskListScreen() {
         </View>
 
         <View style={styles.templateSection}>
-          <Text style={styles.templateTitle}>Task Templates</Text>
+          <Text style={styles.templateTitle}>{t('task_templates')}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -625,9 +642,9 @@ export default function TaskListScreen() {
         {filteredTasks.length === 0 ? (
           <EmptyState
             icon="checkbox-outline"
-            title="No tasks found"
+            title={t('no_data_yet')}
             message="Tap the + button to create your first task"
-            buttonText="Add Task"
+            buttonText={t('add_new_task')}
             onButtonPress={() => setModalVisible(true)}
           />
         ) : (
@@ -652,6 +669,8 @@ export default function TaskListScreen() {
           visible={modalVisible}
           onRequestClose={() => {
             setModalVisible(false);
+            setShowDatePicker(false);
+            setShowTimePicker(false);
             resetForm();
           }}
         >
@@ -665,7 +684,7 @@ export default function TaskListScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.modalTitle}>Add New Task</Text>
+              <Text style={styles.modalTitle}>{t('add_new_task')}</Text>
 
               <TextInput
                 style={styles.modalInput}
@@ -675,7 +694,7 @@ export default function TaskListScreen() {
                 onChangeText={setNewTaskTitle}
               />
 
-              <Text style={styles.label}>Category</Text>
+              <Text style={styles.label}>{t('category')}</Text>
               <View style={styles.categoryContainer}>
                 {(['work', 'personal', 'study', 'health', 'other'] as TaskCategory[]).map((cat) => (
                   <TouchableOpacity
@@ -703,7 +722,7 @@ export default function TaskListScreen() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Priority</Text>
+              <Text style={styles.label}>{t('priority')}</Text>
               <View style={styles.priorityContainer}>
                 {(['low', 'medium', 'high'] as TaskPriority[]).map((priority) => (
                   <TouchableOpacity
@@ -727,23 +746,32 @@ export default function TaskListScreen() {
 
               <TouchableOpacity
                 style={styles.dateBtn}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                  setShowTimePicker(false);
+                  setShowDatePicker((visible) => !visible);
+                }}
               >
                 <Ionicons name="calendar" size={20} color={colors.primary} />
                 <Text style={styles.dateBtnText}>
-                  {dueDate ? formatDateTime(dueDate.getTime()) : 'Set Due Date'}
+                  {dueDate ? formatPickerDate(dueDate) : t('set_due_date')}
                 </Text>
               </TouchableOpacity>
 
               <View style={styles.reminderContainer}>
                 <View style={styles.reminderRow}>
                   <Ionicons name="notifications-outline" size={20} color={colors.primary} />
-                  <Text style={styles.reminderLabel}>Set Reminder</Text>
+                  <Text style={styles.reminderLabel}>{t('set_reminder')}</Text>
                   <Switch
                     value={reminder}
                     onValueChange={(value) => {
                       haptics.switch();
                       setReminder(value);
+                      if (!value) {
+                        setShowTimePicker(false);
+                        setReminderTime(null);
+                      } else if (!reminderTime) {
+                        setReminderTime(mergeReminderWithDueDate(new Date(), dueDate));
+                      }
                     }}
                     trackColor={{ false: colors.border, true: colors.primary }}
                     thumbColor={colors.text}
@@ -754,13 +782,16 @@ export default function TaskListScreen() {
                 {reminder ? (
                   <TouchableOpacity
                     style={styles.timeBtn}
-                    onPress={() => setShowTimePicker(true)}
+                    onPress={() => {
+                      setShowDatePicker(false);
+                      setShowTimePicker((visible) => !visible);
+                    }}
                   >
                     <Ionicons name="time-outline" size={20} color={colors.primary} />
                     <Text style={styles.timeBtnText}>
                       {reminderTime
-                        ? formatDateTime(reminderTime.getTime())
-                        : 'Select Reminder Time'}
+                        ? formatPickerTime(reminderTime)
+                        : t('select_reminder_time')}
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -768,7 +799,7 @@ export default function TaskListScreen() {
 
               <TextInput
                 style={[styles.modalInput, styles.notesInput]}
-                placeholder="Notes (optional)"
+                placeholder={t('notes_optional')}
                 placeholderTextColor={colors.textSecondary}
                 value={notes}
                 onChangeText={setNotes}
@@ -779,21 +810,35 @@ export default function TaskListScreen() {
               {showDatePicker ? (
                 <DateTimePicker
                   value={dueDate || new Date()}
-                  mode="datetime"
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  minimumDate={new Date()}
                   onChange={(_, selectedDate) => {
-                    setShowDatePicker(false);
-                    if (selectedDate) setDueDate(selectedDate);
+                    if (Platform.OS !== 'ios') {
+                      setShowDatePicker(false);
+                    }
+                    if (selectedDate) {
+                      setDueDate(selectedDate);
+                      if (reminderTime) {
+                        setReminderTime(mergeReminderWithDueDate(reminderTime, selectedDate));
+                      }
+                    }
                   }}
                 />
               ) : null}
 
               {showTimePicker ? (
                 <DateTimePicker
-                  value={reminderTime || new Date()}
-                  mode="datetime"
+                  value={reminderTime || mergeReminderWithDueDate(new Date(), dueDate)}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
                   onChange={(_, selectedDate) => {
-                    setShowTimePicker(false);
-                    if (selectedDate) setReminderTime(selectedDate);
+                    if (Platform.OS !== 'ios') {
+                      setShowTimePicker(false);
+                    }
+                    if (selectedDate) {
+                      setReminderTime(mergeReminderWithDueDate(selectedDate, dueDate));
+                    }
                   }}
                 />
               ) : null}
@@ -804,17 +849,19 @@ export default function TaskListScreen() {
                   onPress={() => {
                     haptics.light();
                     setModalVisible(false);
+                    setShowDatePicker(false);
+                    setShowTimePicker(false);
                     resetForm();
                   }}
                 >
-                  <Text style={styles.cancelText}>Cancel</Text>
+                  <Text style={styles.cancelText}>{t('cancel')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.saveBtn]}
                   onPress={handleAddTask}
                 >
-                  <Text style={styles.saveText}>Add Task</Text>
+                  <Text style={styles.saveText}>{t('add_new_task')}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -830,9 +877,9 @@ export default function TaskListScreen() {
         >
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, styles.modalPanelContent]}>
-              <Text style={styles.modalTitle}>Filter Tasks</Text>
+              <Text style={styles.modalTitle}>{t('tasks')}</Text>
 
-              <Text style={styles.label}>Category</Text>
+              <Text style={styles.label}>{t('category')}</Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity
                   style={[
@@ -844,7 +891,7 @@ export default function TaskListScreen() {
                   <Text
                     style={filterCategory === 'all' ? styles.filterTextSelected : styles.filterText}
                   >
-                    All
+                    {t('all')}
                   </Text>
                 </TouchableOpacity>
 
@@ -866,7 +913,7 @@ export default function TaskListScreen() {
                 ))}
               </View>
 
-              <Text style={styles.label}>Priority</Text>
+              <Text style={styles.label}>{t('priority')}</Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity
                   style={[
@@ -878,7 +925,7 @@ export default function TaskListScreen() {
                   <Text
                     style={filterPriority === 'all' ? styles.filterTextSelected : styles.filterText}
                   >
-                    All
+                    {t('all')}
                   </Text>
                 </TouchableOpacity>
 
@@ -914,7 +961,7 @@ export default function TaskListScreen() {
                   <Text
                     style={filterStatus === 'all' ? styles.filterTextSelected : styles.filterText}
                   >
-                    All
+                    {t('all')}
                   </Text>
                 </TouchableOpacity>
 
@@ -930,7 +977,7 @@ export default function TaskListScreen() {
                       filterStatus === 'pending' ? styles.filterTextSelected : styles.filterText
                     }
                   >
-                    Pending
+                    {t('pending')}
                   </Text>
                 </TouchableOpacity>
 
@@ -946,7 +993,7 @@ export default function TaskListScreen() {
                       filterStatus === 'completed' ? styles.filterTextSelected : styles.filterText
                     }
                   >
-                    Completed
+                    {t('completed')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -959,7 +1006,7 @@ export default function TaskListScreen() {
                     setFilterModalVisible(false);
                   }}
                 >
-                  <Text style={styles.cancelText}>Close</Text>
+                  <Text style={styles.cancelText}>{t('close')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -969,7 +1016,7 @@ export default function TaskListScreen() {
                     setFilterModalVisible(false);
                   }}
                 >
-                  <Text style={styles.saveText}>Apply</Text>
+                  <Text style={styles.saveText}>{t('save')}</Text>
                 </TouchableOpacity>
               </View>
             </View>

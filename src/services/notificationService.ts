@@ -97,6 +97,14 @@ class NotificationService {
     });
   }
 
+  private buildMedicineBody(medicineName: string, dosage?: string, mealTiming?: string): string {
+    const baseMessage = dosage
+      ? `Time to take ${dosage} of ${medicineName}`
+      : `Time to take ${medicineName}`;
+
+    return mealTiming ? `${baseMessage} ${mealTiming}` : baseMessage;
+  }
+
   async scheduleTaskReminder(
     taskId: string,
     taskTitle: string,
@@ -203,7 +211,8 @@ class NotificationService {
     medicineName: string,
     hour: number,
     minute: number,
-    dosage?: string
+    dosage?: string,
+    mealTiming?: string
   ): Promise<string | null> {
     try {
       const safeHour = Math.max(0, Math.min(23, hour));
@@ -213,13 +222,12 @@ class NotificationService {
         content: {
           title: '💊 Medicine Reminder',
           subtitle: medicineName,
-          body: dosage
-            ? `Time to take ${dosage} of ${medicineName}`
-            : `Time to take ${medicineName}`,
+          body: this.buildMedicineBody(medicineName, dosage, mealTiming),
           data: {
             type: 'medicine',
             medicineName,
             dosage: dosage || '',
+            mealTiming: mealTiming || '',
             screen: 'Dashboard',
           },
           sound: true,
@@ -253,6 +261,72 @@ class NotificationService {
     } catch (error) {
       console.error('Error scheduling medicine reminder:', error);
       return null;
+    }
+  }
+
+  async scheduleMedicinePlan(
+    medicineName: string,
+    times: Array<{ hour: number; minute: number }>,
+    weekdays: number[],
+    dosage?: string,
+    mealTiming?: string
+  ): Promise<string[]> {
+    try {
+      const scheduledIds: string[] = [];
+      const validWeekdays = weekdays.length > 0 ? weekdays : [1, 2, 3, 4, 5, 6, 7];
+
+      for (const day of validWeekdays) {
+        for (const time of times) {
+          const safeHour = Math.max(0, Math.min(23, time.hour));
+          const safeMinute = Math.max(0, Math.min(59, time.minute));
+          const bodyParts = [];
+
+          if (dosage) {
+            bodyParts.push(`Take ${dosage} of ${medicineName}`);
+          } else {
+            bodyParts.push(`Time to take ${medicineName}`);
+          }
+
+          if (mealTiming) {
+            bodyParts.push(mealTiming);
+          }
+
+          const notificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Medicine Reminder',
+              subtitle: medicineName,
+              body: bodyParts.join(' • '),
+              data: {
+                type: 'medicine',
+                medicineName,
+                dosage: dosage || '',
+                mealTiming: mealTiming || '',
+                screen: 'Dashboard',
+              },
+              sound: true,
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+              weekday: day as 1 | 2 | 3 | 4 | 5 | 6 | 7,
+              hour: safeHour,
+              minute: safeMinute,
+            },
+          });
+
+          scheduledIds.push(notificationId);
+          await this.storeNotification({
+            id: notificationId,
+            taskTitle: medicineName,
+            time: Date.now(),
+            type: 'medicine',
+          });
+        }
+      }
+
+      return scheduledIds;
+    } catch (error) {
+      console.error('Error scheduling medicine plan:', error);
+      return [];
     }
   }
 

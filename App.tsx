@@ -3,6 +3,7 @@ import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import { SyncProvider } from './src/context/SyncContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -25,11 +26,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AuthProvider>
-          <SyncProvider>
-            <AppContent />
-          </SyncProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <SyncProvider>
+              <AppContent />
+            </SyncProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

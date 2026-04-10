@@ -15,8 +15,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { Spacing, BorderRadius, Typography, Shadows } from "../../theme/worktwinTheme";
 import { 
   addFocusSession, 
@@ -52,6 +54,7 @@ const defaultPresets: TimerPreset[] = [
 
 export default function TimerScreen() {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   
   // Timer states
   const [seconds, setSeconds] = useState(25 * 60);
@@ -125,6 +128,15 @@ export default function TimerScreen() {
     loadStats();
     loadWaterIntake();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadTasksData();
+      loadTrendsData();
+      loadStats();
+      loadWaterIntake();
+    }, [])
+  );
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -256,11 +268,36 @@ export default function TimerScreen() {
 
   const loadTrendsData = async () => {
     try {
-      const loadedTrends = await loadProductivityTrends();
-      setTrends(loadedTrends.slice(-7));
+      const [loadedTrends, sessions] = await Promise.all([loadProductivityTrends(), loadFocus()]);
+      const trendSource = loadedTrends.length > 0 ? loadedTrends : buildTrendsFromSessions(sessions);
+      setTrends(trendSource.slice(-7));
     } catch (error) {
       console.error("Error loading trends:", error);
     }
+  };
+
+  const buildTrendsFromSessions = (sessions: FocusSession[]): ProductivityTrend[] => {
+    const grouped = sessions.reduce<Record<string, { totalScore: number; totalFocus: number; count: number }>>(
+      (acc, session) => {
+        const date = new Date(session.endedAt).toISOString().split('T')[0];
+        const productivityScore = Number(session.productivity || session.focusScore || 5);
+
+        acc[date] = acc[date] || { totalScore: 0, totalFocus: 0, count: 0 };
+        acc[date].totalScore += Math.min(10, productivityScore);
+        acc[date].totalFocus += Number(session.seconds || 0);
+        acc[date].count += 1;
+        return acc;
+      },
+      {}
+    );
+
+    return Object.entries(grouped)
+      .map(([date, value]) => ({
+        date,
+        productivityScore: Math.round((value.totalScore / value.count) * 10) / 10,
+        totalFocus: value.totalFocus,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   };
 
   const loadStats = async () => {
@@ -358,8 +395,8 @@ export default function TimerScreen() {
         });
         setShowCompletionModal(false);
         handleReset();
-        loadTrendsData();
-        loadStats();
+        await loadTrendsData();
+        await loadStats();
         Alert.alert('🎉 Session Saved!', 'Great job! Check insights for your progress.');
       }
     } catch (error) {
@@ -857,7 +894,7 @@ export default function TimerScreen() {
       <OfflineStatus />
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
-          <Text style={styles.title}>Focus Timer</Text>
+          <Text style={styles.title}>{t('focus')} Timer</Text>
 
           <Animated.View style={[styles.timerCard, { transform: [{ scale: pulseAnim }] }]}>
             <Animated.View style={[styles.progressCircle, { transform: [{ rotate: spin }] }]}>
@@ -882,7 +919,7 @@ export default function TimerScreen() {
 
           {/* Timer Presets */}
           <View style={styles.presetsSection}>
-            <Text style={styles.sectionLabel}>Quick Presets</Text>
+            <Text style={styles.sectionLabel}>{t('quick_presets')}</Text>
             <View style={styles.presetsContainer}>
               {defaultPresets.map((preset) => (
                 <Animated.View key={preset.id} style={{ transform: [{ scale: buttonScaleAnim }] }}>
@@ -901,7 +938,7 @@ export default function TimerScreen() {
 
           {/* Health & Wellness Buttons - NEW */}
           <View style={styles.healthSection}>
-            <Text style={styles.sectionLabel}>Wellness</Text>
+            <Text style={styles.sectionLabel}>{t('wellness')}</Text>
             <Text style={styles.healthIntro}>Quick support tools for healthier focus sessions.</Text>
             <View style={styles.healthButtons}>
               <TouchableOpacity 
@@ -911,7 +948,7 @@ export default function TimerScreen() {
                 <View style={[styles.healthIconBubble, { backgroundColor: colors.success + '18' }]}>
                   <Ionicons name="leaf" size={21} color={colors.success} />
                 </View>
-                <Text style={styles.healthBtnTitle}>Breathing</Text>
+                <Text style={styles.healthBtnTitle}>{t('breathing')}</Text>
                 <Text style={styles.healthBtnSub}>Calm reset</Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -921,7 +958,7 @@ export default function TimerScreen() {
                 <View style={[styles.healthIconBubble, { backgroundColor: colors.info + '18' }]}>
                   <Ionicons name="water" size={21} color={colors.info} />
                 </View>
-                <Text style={styles.healthBtnTitle}>Hydrate</Text>
+                <Text style={styles.healthBtnTitle}>{t('hydrate')}</Text>
                 <Text style={styles.healthBtnSub}>Drink water</Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -931,7 +968,7 @@ export default function TimerScreen() {
                 <View style={[styles.healthIconBubble, { backgroundColor: colors.warning + '18' }]}>
                   <Ionicons name="body" size={21} color={colors.warning} />
                 </View>
-                <Text style={styles.healthBtnTitle}>Break</Text>
+                <Text style={styles.healthBtnTitle}>{t('break')}</Text>
                 <Text style={styles.healthBtnSub}>5 min timer</Text>
               </TouchableOpacity>
             </View>
@@ -939,7 +976,7 @@ export default function TimerScreen() {
 
           {/* Task Linking */}
           <View style={styles.taskSelector}>
-            <Text style={styles.sectionLabel}>Link to Task (optional)</Text>
+            <Text style={styles.sectionLabel}>{t('link_to_task')} (optional)</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.taskList}>
               <TouchableOpacity
                 style={[styles.taskChip, !selectedTaskId && styles.taskChipSelected]}
@@ -948,7 +985,7 @@ export default function TimerScreen() {
                   setSelectedTaskId(null);
                 }}
               >
-                <Text style={!selectedTaskId ? styles.taskChipTextSelected : styles.taskChipText}>None</Text>
+                <Text style={!selectedTaskId ? styles.taskChipTextSelected : styles.taskChipText}>{t('none')}</Text>
               </TouchableOpacity>
               {tasks.map(task => (
                 <TouchableOpacity
@@ -969,7 +1006,7 @@ export default function TimerScreen() {
 
           {/* Time Options */}
           <View style={styles.timeSelector}>
-            <Text style={styles.sectionLabel}>Session Duration</Text>
+            <Text style={styles.sectionLabel}>{t('session_duration')}</Text>
             <View style={styles.timeOptions}>
               {timeOptions.map((time) => (
                 <Animated.View key={time} style={{ transform: [{ scale: buttonScaleAnim }] }}>
@@ -989,7 +1026,7 @@ export default function TimerScreen() {
                   setSelectedTime(0);
                 }}
               >
-                <Text style={[styles.timeBtnText, showCustomInput && styles.timeBtnTextSelected]}>Custom</Text>
+                <Text style={[styles.timeBtnText, showCustomInput && styles.timeBtnTextSelected]}>{t('custom')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1054,15 +1091,15 @@ export default function TimerScreen() {
           <View style={styles.statsContainer}>
             <View style={styles.statCard}>
               <Text style={styles.statCardValue}>{stats.totalSessions}</Text>
-              <Text style={styles.statCardLabel}>Total Sessions</Text>
+              <Text style={styles.statCardLabel}>{t('total_sessions')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statCardValue}>{formatDuration(stats.totalFocusTime)}</Text>
-              <Text style={styles.statCardLabel}>Total Focus</Text>
+              <Text style={styles.statCardLabel}>{t('total_focus')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statCardValue}>{stats.averageProductivity}/10</Text>
-              <Text style={styles.statCardLabel}>Avg Productivity</Text>
+              <Text style={styles.statCardLabel}>{t('avg_productivity')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statCardValue}>{stats.currentStreak}</Text>
@@ -1080,21 +1117,21 @@ export default function TimerScreen() {
           >
             <Ionicons name="trending-up" size={20} color={colors.primary} />
             <Text style={styles.trendsBtnText}>
-              {showTrends ? 'Hide Productivity Trends' : 'View Productivity Trends'}
+              {showTrends ? t('hide_productivity_trends') : t('view_productivity_trends')}
             </Text>
           </TouchableOpacity>
 
           {/* Productivity Trends */}
           {showTrends && (
             <View style={styles.trendsContainer}>
-              <Text style={styles.trendsTitle}>Last 7 Days</Text>
+              <Text style={styles.trendsTitle}>{t('last_7_days')}</Text>
               
               {trends.length > 0 ? (
                 <>
                   <View style={styles.chartWrapper}>
                     <LineChart
                       data={{
-                        labels: trends.map(t => t.date.split('/')[0]),
+                        labels: trends.map((t) => new Date(`${t.date}T12:00:00`).toLocaleDateString([], { weekday: 'short' })),
                         datasets: [{ data: trends.map(t => t.productivityScore) }],
                       }}
                       width={screenWidth - Spacing.xl * 2}
@@ -1124,7 +1161,7 @@ export default function TimerScreen() {
                   ))}
                 </>
               ) : (
-                <Text style={styles.noTrendsText}>No trends data yet. Complete some sessions to see your progress!</Text>
+                <Text style={styles.noTrendsText}>Complete some sessions to see your progress!</Text>
               )}
             </View>
           )}

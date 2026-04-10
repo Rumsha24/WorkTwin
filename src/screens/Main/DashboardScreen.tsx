@@ -13,6 +13,7 @@ import {
   Dimensions,
   InteractionManager,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,7 +112,24 @@ export default function DashboardScreen({ navigation }: any) {
   const [mentalAnswers, setMentalAnswers] = useState<Record<string, string>>({});
   const [newMedicine, setNewMedicine] = useState({ name: '', time: '', dosage: '' });
   const [medicineReminderTime, setMedicineReminderTime] = useState(new Date());
+  const [medicineSecondReminderTime, setMedicineSecondReminderTime] = useState(() => {
+    const next = new Date();
+    next.setHours(20, 0, 0, 0);
+    return next;
+  });
   const [showMedicineTimePicker, setShowMedicineTimePicker] = useState(false);
+  const [showMedicineSecondTimePicker, setShowMedicineSecondTimePicker] = useState(false);
+  const [medicineFrequency, setMedicineFrequency] = useState<'once' | 'twice'>('once');
+  const [medicineMealTiming, setMedicineMealTiming] = useState<'before meal' | 'after meal'>('after meal');
+  const [medicineDays, setMedicineDays] = useState<string[]>([
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun',
+  ]);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
 
   // Sleep modal selected state
@@ -151,6 +169,12 @@ export default function DashboardScreen({ navigation }: any) {
   ];
 
   const periodMoods = ['Calm', 'Happy', 'Sensitive', 'Irritable', 'Anxious', 'Tired'];
+  const medicineDayOptions = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const medicineQuickTimes = [
+    { label: 'Morning', hour: 8, minute: 0 },
+    { label: 'Afternoon', hour: 1, minute: 0, meridiem: 'PM' as const },
+    { label: 'Night', hour: 8, minute: 0, meridiem: 'PM' as const },
+  ];
 
   const wellnessReminderOptions: WellnessReminderOption[] = [
     { type: 'hydration', label: 'Hydrate', time: '10:00 AM', hour: 10, minute: 0, icon: 'water' },
@@ -222,6 +246,34 @@ export default function DashboardScreen({ navigation }: any) {
 
   const formatClockTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const createTimeSlot = (hour: number, minute: number, meridiem?: 'AM' | 'PM') => {
+    const next = new Date();
+    let normalizedHour = hour;
+    if (meridiem === 'PM' && normalizedHour < 12) normalizedHour += 12;
+    if (meridiem === 'AM' && normalizedHour === 12) normalizedHour = 0;
+    next.setHours(normalizedHour, minute, 0, 0);
+    return next;
+  };
+
+  const formatMedicineDays = (days?: string[]) => {
+    if (!days || days.length === 0 || days.length === 7) return 'Every day';
+    return days.join(', ');
+  };
+
+  const formatMedicineTimes = (times?: string[], fallback?: string) => {
+    if (times && times.length > 0) return times.join(' • ');
+    return fallback || '';
+  };
+
+  const toggleMedicineDay = (day: string) => {
+    setMedicineDays((current) => {
+      if (current.includes(day)) {
+        return current.length === 1 ? current : current.filter((item) => item !== day);
+      }
+      return [...current, day];
+    });
+  };
 
   const adjustPeriodDate = (days: number) => {
     setPeriodDate((current) => {
@@ -358,6 +410,18 @@ export default function DashboardScreen({ navigation }: any) {
 
   const formatReminderTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const openAddMedicineModal = () => {
+    setNewMedicine({ name: '', time: '', dosage: '' });
+    setMedicineReminderTime(createTimeSlot(8, 0));
+    setMedicineSecondReminderTime(createTimeSlot(20, 0));
+    setMedicineFrequency('once');
+    setMedicineMealTiming('after meal');
+    setMedicineDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+    setShowMedicineTimePicker(false);
+    setShowMedicineSecondTimePicker(false);
+    setShowAddMedicine(true);
+  };
 
   const getMentalHealthFeedbackForScore = (score: number) => {
     if (score >= 80) {
@@ -497,6 +561,7 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const handleAddSteps = async () => {
+    Keyboard.dismiss();
     const steps = parseInt(stepInput, 10);
     if (isNaN(steps) || steps < 0) {
       Alert.alert('Invalid Input', 'Please enter a valid number of steps');
@@ -511,11 +576,14 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const handleQuickAddSteps = async (extraSteps: number) => {
-    await addSteps(extraSteps);
+    Keyboard.dismiss();
+    const nextTotal = Math.max(0, Number(healthData.stepData.steps || 0) + extraSteps);
+    setStepInput(nextTotal.toString());
     haptics.light();
   };
 
   const handleUpdateStepGoal = async () => {
+    Keyboard.dismiss();
     const goal = parseInt(stepGoalInput, 10);
     if (isNaN(goal) || goal < 100) {
       Alert.alert('Invalid Input', 'Please enter a valid step goal (minimum 100)');
@@ -531,18 +599,25 @@ export default function DashboardScreen({ navigation }: any) {
     const name = newMedicine.name.trim();
     const time = newMedicine.time.trim() || formatClockTime(medicineReminderTime);
     const dosage = newMedicine.dosage.trim();
+    const secondTime = formatClockTime(medicineSecondReminderTime);
+    const selectedTimes = medicineFrequency === 'twice' ? [time, secondTime] : [time];
 
     if (!name || !dosage) {
       Alert.alert('Error', 'Please add medicine name and dosage');
       return;
     }
 
-    if (!/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/.test(time)) {
+    if (!selectedTimes.every((value) => /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/.test(value))) {
       Alert.alert('Invalid Time', 'Please enter time like 9:00 AM or 21:00.');
       return;
     }
 
-    const saved = await addMedicine(name, time, dosage);
+    const saved = await addMedicine(name, time, dosage, {
+      times: selectedTimes,
+      days: medicineDays,
+      frequency: medicineFrequency,
+      mealTiming: medicineMealTiming,
+    });
     if (!saved) {
       Alert.alert('Error', 'Medicine could not be saved. Please try again.');
       return;
@@ -550,11 +625,19 @@ export default function DashboardScreen({ navigation }: any) {
 
     setNewMedicine({ name: '', time: '', dosage: '' });
     setMedicineReminderTime(new Date());
+    setMedicineSecondReminderTime(createTimeSlot(20, 0));
     setShowMedicineTimePicker(false);
+    setShowMedicineSecondTimePicker(false);
+    setMedicineFrequency('once');
+    setMedicineMealTiming('after meal');
+    setMedicineDays(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
     setShowAddMedicine(false);
     await loadHealthData();
     haptics.success();
-    Alert.alert('Medicine Added', name + ' at ' + time);
+    Alert.alert(
+      'Medicine Added',
+      `${name} set for ${formatMedicineDays(medicineDays)} at ${selectedTimes.join(' and ')} (${medicineMealTiming}).`
+    );
   };
 
   const handleTakeMedicine = async (id: string, name: string) => {
@@ -582,6 +665,13 @@ export default function DashboardScreen({ navigation }: any) {
     if (selectedDate) {
       setMedicineReminderTime(selectedDate);
       setNewMedicine((current) => ({ ...current, time: formatClockTime(selectedDate) }));
+    }
+  };
+
+  const handleMedicineSecondTimeChange = (_event: any, selectedDate?: Date) => {
+    setShowMedicineSecondTimePicker(false);
+    if (selectedDate) {
+      setMedicineSecondReminderTime(selectedDate);
     }
   };
 
@@ -802,7 +892,12 @@ export default function DashboardScreen({ navigation }: any) {
       borderWidth: 1,
       borderColor: colors.primary + '24',
     },
+    quickTimeChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
     quickTimeText: { ...Typography.caption, color: colors.primary, fontWeight: '700' },
+    quickTimeTextActive: { color: '#FFFFFF' },
     quickTimeSubText: { ...Typography.caption, color: colors.textMuted, fontSize: 10, marginTop: 2 },
     chipGrid: {
       flexDirection: 'row',
@@ -994,6 +1089,7 @@ export default function DashboardScreen({ navigation }: any) {
     medicineName: { ...Typography.body, fontWeight: '600', color: colors.text },
     medicineDosage: { ...Typography.caption, color: colors.textSecondary },
     medicineTime: { ...Typography.caption, color: colors.primary, marginTop: 2 },
+    medicineMeta: { ...Typography.caption, color: colors.textMuted, marginTop: 2 },
     takenBtn: {
       backgroundColor: colors.success,
       paddingHorizontal: Spacing.md,
@@ -1490,7 +1586,7 @@ export default function DashboardScreen({ navigation }: any) {
                   style={styles.healthButton}
                   onPress={() => {
                     if (healthData.medicines.length === 0) {
-                      setShowAddMedicine(true);
+                      openAddMedicineModal();
                     } else {
                       setShowMedicineModal(true);
                     }
@@ -1557,7 +1653,7 @@ export default function DashboardScreen({ navigation }: any) {
                 <TouchableOpacity
                   onPress={() => {
                     if (healthData.medicines.length === 0) {
-                      setShowAddMedicine(true);
+                      openAddMedicineModal();
                     } else {
                       setShowMedicineModal(true);
                     }
@@ -1576,7 +1672,12 @@ export default function DashboardScreen({ navigation }: any) {
                       <View style={styles.medicineInfo}>
                         <Text style={styles.medicineName}>{med.name}</Text>
                         <Text style={styles.medicineDosage}>{med.dosage}</Text>
-                        <Text style={styles.medicineTime}>Time: {med.time}</Text>
+                        <Text style={styles.medicineTime}>
+                          {formatMedicineTimes(med.times, med.time)}
+                        </Text>
+                        <Text style={styles.medicineMeta}>
+                          {formatMedicineDays(med.days)} • {med.mealTiming || 'After meal'}
+                        </Text>
                       </View>
                       {!med.taken ? (
                         <TouchableOpacity
@@ -1597,7 +1698,7 @@ export default function DashboardScreen({ navigation }: any) {
               ) : (
                 <TouchableOpacity
                   style={styles.emptyCard}
-                  onPress={() => setShowAddMedicine(true)}
+                  onPress={openAddMedicineModal}
                   activeOpacity={0.85}
                 >
                   <Text style={styles.emptyTitle}>No medicine reminders yet</Text>
@@ -1844,6 +1945,9 @@ export default function DashboardScreen({ navigation }: any) {
               value={stepInput}
               onChangeText={setStepInput}
               keyboardType="numeric"
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={Keyboard.dismiss}
             />
             <TouchableOpacity
               style={styles.modalButton}
@@ -1860,6 +1964,9 @@ export default function DashboardScreen({ navigation }: any) {
               value={stepGoalInput}
               onChangeText={setStepGoalInput}
               keyboardType="numeric"
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={Keyboard.dismiss}
             />
             <TouchableOpacity
               style={styles.modalButtonSecondary}
@@ -1894,7 +2001,12 @@ export default function DashboardScreen({ navigation }: any) {
                   <View style={styles.medicineInfo}>
                     <Text style={styles.medicineName}>{med.name}</Text>
                     <Text style={styles.medicineDosage}>{med.dosage}</Text>
-                    <Text style={styles.medicineTime}>⏰ {med.time}</Text>
+                    <Text style={styles.medicineTime}>
+                      {formatMedicineTimes(med.times, med.time)}
+                    </Text>
+                    <Text style={styles.medicineMeta}>
+                      {formatMedicineDays(med.days)} • {med.mealTiming || 'After meal'}
+                    </Text>
                   </View>
                   {!med.taken ? (
                     <TouchableOpacity
@@ -1922,7 +2034,7 @@ export default function DashboardScreen({ navigation }: any) {
               style={styles.modalButton}
               onPress={() => {
                 setShowMedicineModal(false);
-                setShowAddMedicine(true);
+                openAddMedicineModal();
               }}
               activeOpacity={0.85}
             >
@@ -1943,68 +2055,168 @@ export default function DashboardScreen({ navigation }: any) {
       <Modal visible={showAddMedicine} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Medicine</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Medicine Name"
-              placeholderTextColor={colors.textMuted}
-              value={newMedicine.name}
-              onChangeText={(text) => setNewMedicine({ ...newMedicine, name: text })}
-            />
-            <Text style={styles.modalSubtitle}>Reminder Time</Text>
-            <TouchableOpacity
-              style={styles.timePickerButton}
-              onPress={() => setShowMedicineTimePicker((visible) => !visible)}
-              activeOpacity={0.85}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.timePickerValue}>
-                {newMedicine.time || formatClockTime(medicineReminderTime)}
-              </Text>
-              <Ionicons name="time-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            {showMedicineTimePicker && (
-              <View style={styles.timePickerInlineWrap}>
-                <DateTimePicker
-                  value={medicineReminderTime}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                  onChange={handleMedicineTimeChange}
-                />
-              </View>
-            )}
-            <View style={styles.quickTimeRow}>
-              {[
-                { label: 'Morning', hour: 9, minute: 0 },
-                { label: 'Afternoon', hour: 13, minute: 0 },
-                { label: 'Night', hour: 20, minute: 0 },
-              ].map((item) => {
-                const chipTime = new Date();
-                chipTime.setHours(item.hour, item.minute, 0, 0);
+              <Text style={styles.modalTitle}>Add Medicine</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Medicine Name"
+                placeholderTextColor={colors.textMuted}
+                value={newMedicine.name}
+                onChangeText={(text) => setNewMedicine({ ...newMedicine, name: text })}
+              />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Dosage (e.g., 1 tablet)"
+                placeholderTextColor={colors.textMuted}
+                value={newMedicine.dosage}
+                onChangeText={(text) => setNewMedicine({ ...newMedicine, dosage: text })}
+              />
 
-                return (
+              <Text style={styles.modalSubtitle}>How often</Text>
+              <View style={styles.quickTimeRow}>
+                {(['once', 'twice'] as const).map((value) => (
                   <TouchableOpacity
-                    key={item.label}
-                    style={styles.quickTimeChip}
+                    key={value}
+                    style={[
+                      styles.quickTimeChip,
+                      medicineFrequency === value && styles.quickTimeChipActive,
+                    ]}
+                    onPress={() => setMedicineFrequency(value)}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.quickTimeText,
+                        medicineFrequency === value && styles.quickTimeTextActive,
+                      ]}
+                    >
+                      {value === 'once' ? 'Once a day' : 'Twice a day'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalSubtitle}>Meal timing</Text>
+              <View style={styles.quickTimeRow}>
+                {(['before meal', 'after meal'] as const).map((value) => (
+                  <TouchableOpacity
+                    key={value}
+                    style={[
+                      styles.quickTimeChip,
+                      medicineMealTiming === value && styles.quickTimeChipActive,
+                    ]}
+                    onPress={() => setMedicineMealTiming(value)}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[
+                        styles.quickTimeText,
+                        medicineMealTiming === value && styles.quickTimeTextActive,
+                      ]}
+                    >
+                      {value === 'before meal' ? 'Before meal' : 'After meal'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.modalSubtitle}>Reminder days</Text>
+              <View style={styles.chipGrid}>
+                {medicineDayOptions.map((day) => {
+                  const selected = medicineDays.includes(day);
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      style={[styles.periodChip, selected && styles.periodChipActive]}
+                      onPress={() => toggleMedicineDay(day)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.periodChipText, selected && styles.periodChipTextActive]}>
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.modalSubtitle}>Primary reminder</Text>
+              <TouchableOpacity
+                style={styles.timePickerButton}
+                onPress={() => {
+                  setShowMedicineTimePicker((visible) => !visible);
+                  setShowMedicineSecondTimePicker(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.timePickerValue}>
+                  {newMedicine.time || formatClockTime(medicineReminderTime)}
+                </Text>
+                <Ionicons name="time-outline" size={22} color={colors.primary} />
+              </TouchableOpacity>
+              {showMedicineTimePicker && (
+                <View style={styles.timePickerInlineWrap}>
+                  <DateTimePicker
+                    value={medicineReminderTime}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                    onChange={handleMedicineTimeChange}
+                  />
+                </View>
+              )}
+              <View style={styles.quickTimeRow}>
+                {medicineQuickTimes.map((item) => {
+                  const chipTime = createTimeSlot(item.hour, item.minute, item.meridiem);
+                  return (
+                    <TouchableOpacity
+                      key={item.label}
+                      style={styles.quickTimeChip}
+                      onPress={() => {
+                        setMedicineReminderTime(chipTime);
+                        setNewMedicine({ ...newMedicine, time: formatClockTime(chipTime) });
+                        setShowMedicineTimePicker(false);
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.quickTimeText}>{item.label}</Text>
+                      <Text style={styles.quickTimeSubText}>{formatClockTime(chipTime)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {medicineFrequency === 'twice' ? (
+                <>
+                  <Text style={styles.modalSubtitle}>Second reminder</Text>
+                  <TouchableOpacity
+                    style={styles.timePickerButton}
                     onPress={() => {
-                      setMedicineReminderTime(chipTime);
-                      setNewMedicine({ ...newMedicine, time: formatClockTime(chipTime) });
+                      setShowMedicineSecondTimePicker((visible) => !visible);
                       setShowMedicineTimePicker(false);
                     }}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.quickTimeText}>{item.label}</Text>
-                    <Text style={styles.quickTimeSubText}>{formatClockTime(chipTime)}</Text>
+                    <Text style={styles.timePickerValue}>
+                      {formatClockTime(medicineSecondReminderTime)}
+                    </Text>
+                    <Ionicons name="time-outline" size={22} color={colors.primary} />
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Dosage (e.g., 1 tablet)"
-              placeholderTextColor={colors.textMuted}
-              value={newMedicine.dosage}
-              onChangeText={(text) => setNewMedicine({ ...newMedicine, dosage: text })}
-            />
+                  {showMedicineSecondTimePicker && (
+                    <View style={styles.timePickerInlineWrap}>
+                      <DateTimePicker
+                        value={medicineSecondReminderTime}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                        onChange={handleMedicineSecondTimeChange}
+                      />
+                    </View>
+                  )}
+                </>
+              ) : null}
+            </ScrollView>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={handleAddMedicine}
@@ -2014,7 +2226,11 @@ export default function DashboardScreen({ navigation }: any) {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.modalButtonSecondary}
-              onPress={() => setShowAddMedicine(false)}
+              onPress={() => {
+                setShowAddMedicine(false);
+                setShowMedicineTimePicker(false);
+                setShowMedicineSecondTimePicker(false);
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.modalButtonSecondaryText}>Cancel</Text>

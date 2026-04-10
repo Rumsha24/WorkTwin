@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useHealth } from '../../hooks/useHealth';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
@@ -60,6 +61,7 @@ type PeriodLog = {
 
 export default function InsightsScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const { healthData, getRecentSleepAverage, getStepProgress, loadHealthData } = useHealth();
 
@@ -798,14 +800,14 @@ export default function InsightsScreen({ navigation }: any) {
         <View style={styles.container}>
           {/* HEADER with Period Selector */}
           <View style={styles.header}>
-            <Text style={styles.title}>Insights</Text>
+            <Text style={styles.title}>{t('insights')}</Text>
             <View style={styles.periodSelector}>
               <TouchableOpacity
                 style={[styles.periodButton, selectedPeriod === 'week' && styles.periodButtonActive]}
                 onPress={() => handlePeriodPress('week')}
               >
                 <Text style={[styles.periodText, selectedPeriod === 'week' && styles.periodTextActive]}>
-                  Week
+                  {t('week')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -813,7 +815,7 @@ export default function InsightsScreen({ navigation }: any) {
                 onPress={() => handlePeriodPress('month')}
               >
                 <Text style={[styles.periodText, selectedPeriod === 'month' && styles.periodTextActive]}>
-                  Month
+                  {t('month')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -821,7 +823,7 @@ export default function InsightsScreen({ navigation }: any) {
                 onPress={() => handlePeriodPress('year')}
               >
                 <Text style={[styles.periodText, selectedPeriod === 'year' && styles.periodTextActive]}>
-                  Year
+                  {t('year')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -841,7 +843,7 @@ export default function InsightsScreen({ navigation }: any) {
             >
               <Ionicons name="timer-outline" size={24} color={colors.primary} style={styles.statIcon} />
               <Text style={styles.statValue}>{formatTime(totalFocus)}</Text>
-              <Text style={styles.statLabel}>Total Focus Time</Text>
+              <Text style={styles.statLabel}>{t('total_focus')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -857,7 +859,7 @@ export default function InsightsScreen({ navigation }: any) {
             >
               <Ionicons name="trending-up" size={24} color={colors.secondary} style={styles.statIcon} />
               <Text style={styles.statValue}>{avgProductivity}/10</Text>
-              <Text style={styles.statLabel}>Avg Productivity</Text>
+              <Text style={styles.statLabel}>{t('avg_productivity')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -872,7 +874,7 @@ export default function InsightsScreen({ navigation }: any) {
             >
               <Ionicons name="play-circle" size={24} color={colors.accent} style={styles.statIcon} />
               <Text style={styles.statValue}>{totalSessions}</Text>
-              <Text style={styles.statLabel}>Total Sessions</Text>
+              <Text style={styles.statLabel}>{t('total_sessions')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -887,13 +889,13 @@ export default function InsightsScreen({ navigation }: any) {
             >
               <Ionicons name="checkbox" size={24} color={colors.success} style={styles.statIcon} />
               <Text style={styles.statValue}>{completedTasks}/{totalTasks}</Text>
-              <Text style={styles.statLabel}>Tasks Done</Text>
+              <Text style={styles.statLabel}>{t('tasks_done')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.wellnessCard}>
             <View style={styles.wellnessHeader}>
-              <Text style={styles.wellnessTitle}>Wellness Snapshot</Text>
+              <Text style={styles.wellnessTitle}>{t('wellness')}</Text>
               <Ionicons name="heart-circle" size={26} color={colors.primary} />
             </View>
             <Text style={styles.wellnessSubtext}>
@@ -1004,7 +1006,7 @@ export default function InsightsScreen({ navigation }: any) {
           {trends.length > 0 ? (
             <TouchableOpacity style={styles.chartCard} onPress={handleChartPress} activeOpacity={0.9}>
               <View style={styles.chartMetaRow}>
-                <Text style={styles.chartTitle}>Productivity Trend</Text>
+              <Text style={styles.chartTitle}>{t('view_productivity_trends')}</Text>
                 <View style={styles.chartPill}>
                   <Text style={styles.chartPillText}>{avgProductivity}/10 avg</Text>
                 </View>
@@ -1028,7 +1030,7 @@ export default function InsightsScreen({ navigation }: any) {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.chartCard} onPress={() => navigation.navigate('Timer')}>
-              <Text style={styles.chartTitle}>No Data Yet</Text>
+              <Text style={styles.chartTitle}>{t('no_data_yet')}</Text>
               <View style={styles.emptyState}>
                 <Ionicons name="timer-outline" size={48} color={colors.textMuted} />
                 <Text style={styles.emptyText}>Complete some focus sessions to see your trends</Text>
@@ -1141,12 +1143,12 @@ export default function InsightsScreen({ navigation }: any) {
           <View style={styles.quickActions}>
             <TouchableOpacity style={styles.actionButton} onPress={() => handleQuickAction('Tasks')}>
               <Ionicons name="list" size={24} color={colors.primary} />
-              <Text style={styles.actionText}>Tasks</Text>
+              <Text style={styles.actionText}>{t('tasks')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton} onPress={() => handleQuickAction('Timer')}>
               <Ionicons name="timer" size={24} color={colors.secondary} />
-              <Text style={styles.actionText}>Timer</Text>
+              <Text style={styles.actionText}>{t('focus')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1154,7 +1156,7 @@ export default function InsightsScreen({ navigation }: any) {
               onPress={handleSummaryPress}
             >
               <Ionicons name="analytics" size={24} color={colors.accent} />
-              <Text style={styles.actionText}>Summary</Text>
+              <Text style={styles.actionText}>{t('summary')}</Text>
             </TouchableOpacity>
           </View>
         </View>

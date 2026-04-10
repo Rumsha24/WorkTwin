@@ -11,18 +11,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  getAuth,
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from 'firebase/auth';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
 import { haptics } from '../../utils/haptics';
+import { auth } from '../../services/firebaseConfig';
 
 export default function ChangePasswordScreen({ navigation }: any) {
   const { colors } = useTheme();
-  const auth = getAuth();
+  const { t } = useLanguage();
   const currentUser = auth.currentUser;
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,6 +73,14 @@ export default function ChangePasswordScreen({ navigation }: any) {
         throw new Error('No authenticated user found');
       }
 
+      const hasPasswordProvider = user.providerData.some(
+        (provider) => provider.providerId === 'password'
+      );
+
+      if (!hasPasswordProvider) {
+        throw new Error('This account does not use email and password sign-in.');
+      }
+
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
@@ -87,12 +96,14 @@ export default function ChangePasswordScreen({ navigation }: any) {
       haptics.error();
       console.error('Error changing password:', error);
 
-      if (error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         setError('Current password is incorrect');
       } else if (error.code === 'auth/weak-password') {
         setError('Password is too weak. Please use a stronger password');
       } else if (error.code === 'auth/requires-recent-login') {
         setError('Please log out and log in again before changing your password');
+      } else if (error.message === 'This account does not use email and password sign-in.') {
+        setError('This account cannot change password here because it was not created with email/password login.');
       } else {
         setError(error.message || 'Failed to change password');
       }
@@ -239,7 +250,7 @@ export default function ChangePasswordScreen({ navigation }: any) {
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Change Password</Text>
+          <Text style={styles.title}>{t('change_password')}</Text>
         </View>
 
         <View style={styles.card}>
@@ -396,7 +407,7 @@ export default function ChangePasswordScreen({ navigation }: any) {
             {loading ? (
               <ActivityIndicator color={colors.text} />
             ) : (
-              <Text style={styles.buttonText}>Change Password</Text>
+              <Text style={styles.buttonText}>{t('change_password')}</Text>
             )}
           </TouchableOpacity>
 

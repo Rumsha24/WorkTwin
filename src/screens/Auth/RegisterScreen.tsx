@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
@@ -24,6 +25,7 @@ import { AuthLogo } from '../../components/common/AuthLogo';
 
 export default function RegisterScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const { register } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -279,7 +281,7 @@ export default function RegisterScreen({ navigation }: any) {
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.title}>{t('create_account')}</Text>
           </View>
 
           <AuthLogo compact />
@@ -458,7 +460,7 @@ export default function RegisterScreen({ navigation }: any) {
             {loading ? (
               <ActivityIndicator color={colors.text} />
             ) : (
-              <Text style={styles.registerButtonText}>Register</Text>
+              <Text style={styles.registerButtonText}>{t('register')}</Text>
             )}
           </TouchableOpacity>
 

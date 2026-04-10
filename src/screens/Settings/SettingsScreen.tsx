@@ -20,14 +20,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 import { auth } from '../../services/firebaseConfig';
+import { AppLanguage, useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
 import { clearAllData } from '../../utils/storage';
 import { exportService } from '../../services/exportService';
 import { haptics } from '../../utils/haptics';
-
-type AppLanguage = 'English' | 'French' | 'Spanish' | 'Hindi' | 'Italian' | 'Urdu' | 'Chinese';
 
 const settingsCopy: Record<AppLanguage, Record<string, string>> = {
   English: {
@@ -210,6 +209,7 @@ const settingsCopy: Record<AppLanguage, Record<string, string>> = {
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { colors, isDarkMode, toggleTheme } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
 
   const [notifications, setNotifications] = useState(true);
   const [helpModalVisible, setHelpModalVisible] = useState(false);
@@ -221,7 +221,6 @@ export default function SettingsScreen() {
   const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [language, setLanguage] = useState<AppLanguage>('English');
   const copy = settingsCopy[language];
 
   const email = auth.currentUser?.isAnonymous
@@ -258,17 +257,6 @@ export default function SettingsScreen() {
         AsyncStorage.getItem('app_language'),
       ]);
       setBiometricEnabled(savedBiometric === 'true');
-      setLanguage(
-        savedLanguage === 'French' ||
-          savedLanguage === 'Spanish' ||
-          savedLanguage === 'Hindi' ||
-          savedLanguage === 'Italian' ||
-          savedLanguage === 'Urdu' ||
-          savedLanguage === 'Chinese' ||
-          savedLanguage === 'English'
-          ? savedLanguage
-          : 'English'
-      );
     } catch (error) {
       console.error('Error loading advanced preferences:', error);
     }
@@ -310,8 +298,7 @@ export default function SettingsScreen() {
   };
 
   const saveLanguage = async (nextLanguage: AppLanguage) => {
-    setLanguage(nextLanguage);
-    await AsyncStorage.setItem('app_language', nextLanguage);
+    await setLanguage(nextLanguage);
     setLanguageModalVisible(false);
     Alert.alert(settingsCopy[nextLanguage].savedTitle, settingsCopy[nextLanguage].savedBody);
   };

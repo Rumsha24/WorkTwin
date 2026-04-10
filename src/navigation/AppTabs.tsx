@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 import DashboardScreen from '../screens/Main/DashboardScreen';
 import TaskListScreen from '../screens/Tasks/TaskListScreen';
@@ -17,6 +18,7 @@ const SettingsStack = createNativeStackNavigator();
 
 function SettingsStackScreen() {
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <SettingsStack.Navigator
@@ -24,7 +26,7 @@ function SettingsStackScreen() {
         headerStyle: { backgroundColor: colors.card },
         headerTintColor: colors.text,
         headerTitleStyle: { color: colors.text, fontWeight: '600' },
-        headerBackTitle: 'Back',
+        headerBackTitle: t('back'),
         headerShadowVisible: false,
       }}
     >
@@ -36,12 +38,12 @@ function SettingsStackScreen() {
       <SettingsStack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: 'Profile', headerBackTitle: 'Settings' }}
+        options={{ title: t('profile'), headerBackTitle: t('settings') }}
       />
       <SettingsStack.Screen
         name="ChangePassword"
         component={ChangePasswordScreen}
-        options={{ title: 'Change Password', headerBackTitle: 'Settings' }}
+        options={{ title: t('change_password'), headerBackTitle: t('settings') }}
       />
     </SettingsStack.Navigator>
   );
@@ -49,6 +51,7 @@ function SettingsStackScreen() {
 
 export default function AppTabs() {
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Tab.Navigator
@@ -91,27 +94,27 @@ export default function AppTabs() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ title: 'Home' }}
+        options={{ title: t('home') }}
       />
       <Tab.Screen
         name="Tasks"
         component={TaskListScreen}
-        options={{ title: 'Tasks' }}
+        options={{ title: t('tasks') }}
       />
       <Tab.Screen
         name="Timer"
         component={TimerScreen}
-        options={{ title: 'Focus' }}
+        options={{ title: t('focus') }}
       />
       <Tab.Screen
         name="Insights"
         component={InsightsScreen}
-        options={{ title: 'Insights' }}
+        options={{ title: t('insights') }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsStackScreen}
-        options={{ headerShown: false, title: 'Settings' }}
+        options={{ headerShown: false, title: t('settings') }}
       />
     </Tab.Navigator>
   );
