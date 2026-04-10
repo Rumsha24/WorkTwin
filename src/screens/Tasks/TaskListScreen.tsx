@@ -11,6 +11,8 @@ import {
   ScrollView,
   Switch,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -250,18 +252,27 @@ export default function TaskListScreen() {
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
+      justifyContent: 'flex-end',
       alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.xxxl,
+      paddingBottom: Spacing.md,
     },
     modalContent: {
       backgroundColor: colors.card,
       borderRadius: BorderRadius.xl,
-      padding: Spacing.xl,
-      width: '95%',
-      maxHeight: '85%',
+      width: '100%',
+      maxHeight: '88%',
       ...Shadows.medium,
     },
-    modalTitle: { ...Typography.h3, color: colors.text, marginBottom: Spacing.lg },
+    modalScrollContent: {
+      padding: Spacing.xl,
+      paddingBottom: Spacing.xl,
+    },
+    modalPanelContent: {
+      padding: Spacing.xl,
+    },
+    modalTitle: { ...Typography.h3, color: colors.text, marginBottom: Spacing.lg, textAlign: 'center' },
     modalInput: {
       backgroundColor: colors.surface,
       borderRadius: BorderRadius.lg,
@@ -551,8 +562,16 @@ export default function TaskListScreen() {
             resetForm();
           }}
         >
-          <View style={styles.modalOverlay}>
-            <ScrollView contentContainerStyle={styles.modalContent}>
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              style={styles.modalContent}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               <Text style={styles.modalTitle}>Add New Task</Text>
 
               <TextInput
@@ -706,7 +725,7 @@ export default function TaskListScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Filter Modal */}
@@ -717,7 +736,7 @@ export default function TaskListScreen() {
           onRequestClose={() => setFilterModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { width: '90%' }]}>
+            <View style={[styles.modalContent, styles.modalPanelContent]}>
               <Text style={styles.modalTitle}>Filter Tasks</Text>
 
               <Text style={styles.label}>Category</Text>

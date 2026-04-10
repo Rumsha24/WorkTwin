@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface MedicineReminder {
@@ -47,11 +47,7 @@ export function useHealth() {
 
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadHealthData();
-  }, []);
-
-  const loadHealthData = async () => {
+  const loadHealthData = useCallback(async () => {
     try {
       const mentalHealthScore = await AsyncStorage.getItem('mentalHealthScore');
       const lastMentalCheck = await AsyncStorage.getItem('lastMentalCheck');
@@ -78,7 +74,11 @@ export function useHealth() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadHealthData();
+  }, [loadHealthData]);
 
   const persistHealthData = async (data: HealthData) => {
     try {
@@ -193,13 +193,16 @@ export function useHealth() {
     return last7Days.map((day) => day.steps);
   };
 
-  const addMedicine = async (name: string, time: string, dosage: string) => {
+  const addMedicine = async (name: string, time: string, dosage: string): Promise<boolean> => {
     const { notificationService } = await import('../services/notificationService');
+    const trimmedName = name.trim();
+    const trimmedTime = time.trim();
+    const trimmedDosage = dosage.trim();
 
     let notificationId: string | null = null;
 
     try {
-      const match = time.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/);
+      const match = trimmedTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/);
       if (match) {
         let hour = parseInt(match[1], 10);
         const minute = parseInt(match[2], 10);
@@ -209,10 +212,10 @@ export function useHealth() {
         if (suffix === 'am' && hour === 12) hour = 0;
 
         notificationId = await notificationService.scheduleMedicineReminder(
-          name,
+          trimmedName,
           hour,
           minute,
-          dosage
+          trimmedDosage
         );
       }
     } catch (error) {
@@ -221,20 +224,19 @@ export function useHealth() {
 
     const newMedicine: MedicineReminder = {
       id: Date.now().toString(),
-      name,
-      time,
-      dosage,
+      name: trimmedName,
+      time: trimmedTime,
+      dosage: trimmedDosage,
       taken: false,
       notificationId,
     };
 
-    const nextData: HealthData = {
+    const nextData = {
       ...healthData,
       medicines: [...healthData.medicines, newMedicine],
     };
-
     setHealthData(nextData);
-    await persistHealthData(nextData);
+    return persistHealthData(nextData);
   };
 
   const takeMedicine = async (id: string) => {
@@ -336,8 +338,8 @@ export function useHealth() {
     return Math.round(total / recent.length);
   };
 
-  const getMentalHealthFeedback = (): string => {
-    const score = healthData.mentalHealthScore;
+  const getMentalHealthFeedback = (scoreOverride?: number): string => {
+    const score = scoreOverride ?? healthData.mentalHealthScore;
 
     if (score >= 80) {
       return 'Excellent mental wellness! Keep up the great habits! 🌟';

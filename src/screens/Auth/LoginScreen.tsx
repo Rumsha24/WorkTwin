@@ -14,10 +14,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getAuth, signInWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from 'firebase/auth';
 
 import { useTheme } from '../../context/ThemeContext';
 import { haptics } from '../../utils/haptics';
+import { AuthLogo } from '../../components/common/AuthLogo';
+import { DEMO_USER, seedPresentationData } from '../../utils/demoData';
 
 export default function LoginScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -28,6 +36,7 @@ export default function LoginScreen({ navigation }: any) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   
   // Animation values - removed shaking animation
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -66,25 +75,69 @@ export default function LoginScreen({ navigation }: any) {
     }
   };
 
+  const handleDemoLogin = async () => {
+    try {
+      setDemoLoading(true);
+      haptics.medium();
+
+      let demoUser;
+      try {
+        const result = await signInWithEmailAndPassword(
+          auth,
+          DEMO_USER.email,
+          DEMO_USER.password
+        );
+        demoUser = result.user;
+      } catch (error: any) {
+        if (error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-credential') {
+          try {
+            const result = await createUserWithEmailAndPassword(
+              auth,
+              DEMO_USER.email,
+              DEMO_USER.password
+            );
+            demoUser = result.user;
+          } catch {
+            const result = await signInAnonymously(auth);
+            demoUser = result.user;
+          }
+        } else {
+          throw error;
+        }
+      }
+
+      if (demoUser.displayName !== DEMO_USER.name) {
+        try {
+          await updateProfile(demoUser, { displayName: DEMO_USER.name });
+        } catch {
+          // Demo data still works even if Firebase profile updates are unavailable.
+        }
+      }
+
+      await seedPresentationData(demoUser.uid);
+      haptics.success();
+    } catch (error: any) {
+      haptics.error();
+      Alert.alert('Demo Login Failed', error?.message || 'Unable to open presentation demo');
+    } finally {
+      setDemoLoading(false);
+    }
+  };
+
   const styles = StyleSheet.create({
     bg: { flex: 1, backgroundColor: colors.background },
     container: {
-      flex: 1,
+      flexGrow: 1,
       justifyContent: 'center',
       padding: 24,
+      paddingBottom: 36,
     },
-    title: {
-      fontSize: 40,
-      fontWeight: '700',
-      color: colors.primary,
-      marginBottom: 8,
-      textAlign: 'center',
-    },
-    subtitle: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      marginBottom: 36,
-      textAlign: 'center',
+    formCard: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     inputContainer: {
       marginBottom: 16,
@@ -92,7 +145,7 @@ export default function LoginScreen({ navigation }: any) {
     inputWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.card,
+      backgroundColor: colors.surface,
       borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
@@ -135,6 +188,32 @@ export default function LoginScreen({ navigation }: any) {
       color: colors.textSecondary,
       fontWeight: '700',
       fontSize: 16,
+    },
+    demoButton: {
+      backgroundColor: colors.secondary,
+      paddingVertical: 16,
+      borderRadius: 14,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    demoButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+      fontSize: 16,
+    },
+    demoDetails: {
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    demoDetailsText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'center',
     },
     footer: {
       flexDirection: 'row',
@@ -181,8 +260,9 @@ export default function LoginScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-            <Text style={styles.title}>WorkTwin</Text>
-            <Text style={styles.subtitle}>Focus on what matters</Text>
+            <AuthLogo />
+
+            <View style={styles.formCard}>
 
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
@@ -200,7 +280,7 @@ export default function LoginScreen({ navigation }: any) {
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  editable={!loading && !guestLoading}
+                  editable={!loading && !guestLoading && !demoLoading}
                 />
               </View>
             </View>
@@ -220,12 +300,12 @@ export default function LoginScreen({ navigation }: any) {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  editable={!loading && !guestLoading}
+                  editable={!loading && !guestLoading && !demoLoading}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
-                  disabled={loading || guestLoading}
+                  disabled={loading || guestLoading || demoLoading}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -239,7 +319,7 @@ export default function LoginScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.loginButton}
               onPress={handleLogin}
-              disabled={loading || guestLoading}
+              disabled={loading || guestLoading || demoLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -249,9 +329,27 @@ export default function LoginScreen({ navigation }: any) {
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.demoButton}
+              onPress={handleDemoLogin}
+              disabled={loading || guestLoading || demoLoading}
+            >
+              {demoLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.demoButtonText}>Use Presentation Demo</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.demoDetails}>
+              <Text style={styles.demoDetailsText}>
+                Demo user: {DEMO_USER.name} | {DEMO_USER.email}
+              </Text>
+            </View>
+
+            <TouchableOpacity
               style={styles.guestButton}
               onPress={handleGuestLogin}
-              disabled={loading || guestLoading}
+              disabled={loading || guestLoading || demoLoading}
             >
               {guestLoading ? (
                 <ActivityIndicator color={colors.textSecondary} />
@@ -265,6 +363,7 @@ export default function LoginScreen({ navigation }: any) {
               <TouchableOpacity onPress={() => navigation.navigate('Register')}>
                 <Text style={styles.registerLink}>Register</Text>
               </TouchableOpacity>
+            </View>
             </View>
 
             <View style={styles.infoBox}>

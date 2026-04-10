@@ -9,14 +9,18 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
 import { haptics } from '../../utils/haptics';
 import { validateEmail, validatePassword } from '../../utils/validation';
+import { AuthLogo } from '../../components/common/AuthLogo';
 
 export default function RegisterScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -29,6 +33,8 @@ export default function RegisterScreen({ navigation }: any) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [gender, setGender] = useState<'male' | 'female' | null>(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const handleRegister = async () => {
     if (!email || !password || !confirmPassword) {
@@ -55,6 +61,12 @@ export default function RegisterScreen({ navigation }: any) {
       return;
     }
 
+    if (!gender) {
+      haptics.warning();
+      Alert.alert('Gender', 'Please select male or female');
+      return;
+    }
+
     if (!acceptTerms) {
       haptics.warning();
       Alert.alert('Terms', 'Please accept the terms and conditions');
@@ -64,7 +76,8 @@ export default function RegisterScreen({ navigation }: any) {
     try {
       setLoading(true);
       haptics.medium();
-      await register(email, password);
+      const user = await register(email, password);
+      await AsyncStorage.setItem(`profileGender:${user.uid}`, gender);
       haptics.success();
     } catch (error: any) {
       haptics.error();
@@ -101,9 +114,10 @@ export default function RegisterScreen({ navigation }: any) {
       backgroundColor: colors.background,
     },
     container: {
-      flex: 1,
+      flexGrow: 1,
       justifyContent: 'center',
       padding: Spacing.xl,
+      paddingBottom: Spacing.xxxl,
     },
     header: {
       flexDirection: 'row',
@@ -160,6 +174,41 @@ export default function RegisterScreen({ navigation }: any) {
       alignItems: 'center',
       marginBottom: Spacing.lg,
     },
+    termsTextRow: {
+      flex: 1,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+    },
+    genderLabel: {
+      ...Typography.h3,
+      color: colors.text,
+      marginTop: Spacing.xs,
+      marginBottom: Spacing.sm,
+    },
+    genderRow: {
+      flexDirection: 'row',
+      gap: Spacing.md,
+      marginBottom: Spacing.lg,
+    },
+    genderOption: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    genderOptionActive: {
+      backgroundColor: colors.primary + '15',
+      borderColor: colors.primary,
+    },
+    genderText: {
+      ...Typography.button,
+      color: colors.text,
+      marginTop: Spacing.xs,
+    },
     checkbox: {
       width: 24,
       height: 24,
@@ -182,6 +231,12 @@ export default function RegisterScreen({ navigation }: any) {
     termsLink: {
       color: colors.primary,
       fontWeight: '600',
+    },
+    termsModalText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      lineHeight: 23,
+      marginBottom: Spacing.lg,
     },
     registerButton: {
       backgroundColor: colors.primary,
@@ -209,7 +264,11 @@ export default function RegisterScreen({ navigation }: any) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -222,6 +281,8 @@ export default function RegisterScreen({ navigation }: any) {
             </TouchableOpacity>
             <Text style={styles.title}>Create Account</Text>
           </View>
+
+          <AuthLogo compact />
 
           <View style={styles.inputWrapper}>
             <Ionicons
@@ -336,21 +397,58 @@ export default function RegisterScreen({ navigation }: any) {
             </Text>
           )}
 
-          <TouchableOpacity
-            style={styles.termsContainer}
-            onPress={() => {
-              haptics.switch();
-              setAcceptTerms(!acceptTerms);
-            }}
-          >
-            <View style={[styles.checkbox, acceptTerms && styles.checked]}>
-              {acceptTerms && <Ionicons name="checkmark" size={16} color={colors.text} />}
+          <Text style={styles.genderLabel}>Select gender</Text>
+          <View style={styles.genderRow}>
+            {[
+              { value: 'male' as const, label: 'Male', icon: 'male-outline' as const },
+              { value: 'female' as const, label: 'Female', icon: 'female-outline' as const },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.genderOption,
+                  gender === option.value && styles.genderOptionActive,
+                ]}
+                onPress={() => {
+                  haptics.light();
+                  setGender(option.value);
+                }}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={option.icon}
+                  size={24}
+                  color={gender === option.value ? colors.primary : colors.textMuted}
+                />
+                <Text style={styles.genderText}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.termsContainer}>
+            <TouchableOpacity
+              onPress={() => {
+                haptics.switch();
+                setAcceptTerms(!acceptTerms);
+              }}
+            >
+              <View style={[styles.checkbox, acceptTerms && styles.checked]}>
+                {acceptTerms && <Ionicons name="checkmark" size={16} color={colors.text} />}
+              </View>
+            </TouchableOpacity>
+            <View style={styles.termsTextRow}>
+              <Text style={styles.termsText}>I accept the </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.light();
+                  setShowTermsModal(true);
+                }}
+              >
+                <Text style={styles.termsLink}>Terms and Conditions</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.termsText}>
-              I accept the{' '}
-              <Text style={styles.termsLink}>Terms and Conditions</Text>
-            </Text>
-          </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={styles.registerButton}
@@ -367,7 +465,40 @@ export default function RegisterScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
             <Text style={styles.link}>Already have an account? Login</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
+
+        <Modal visible={showTermsModal} transparent animationType="fade">
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            justifyContent: 'center',
+            padding: Spacing.lg,
+          }}>
+            <View style={{
+              backgroundColor: colors.card,
+              borderRadius: BorderRadius.xl,
+              padding: Spacing.xl,
+              ...Shadows.large,
+            }}>
+              <Text style={[styles.title, { marginBottom: Spacing.md }]}>Terms</Text>
+              <Text style={styles.termsModalText}>
+                By creating an account, you agree to use WorkTwin for personal productivity and wellness tracking. Your task, focus, and health entries should be accurate and respectful. Health features are for self-tracking only and are not medical advice.
+              </Text>
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => {
+                  setAcceptTerms(true);
+                  setShowTermsModal(false);
+                }}
+              >
+                <Text style={styles.registerButtonText}>Accept Terms</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                <Text style={styles.link}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -12,11 +12,14 @@ import {
   TextInput,
   Dimensions,
   InteractionManager,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { ProgressChart } from 'react-native-chart-kit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -59,6 +62,15 @@ export default function DashboardScreen({ navigation }: any) {
   const [recentTasks, setRecentTasks] = useState<Task[]>([]);
   const [todaySessions, setTodaySessions] = useState(0);
   const [greeting, setGreeting] = useState('');
+  const [profileGender, setProfileGender] = useState<'male' | 'female' | null>(null);
+  const [lastPeriodDate, setLastPeriodDate] = useState<string | null>(null);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [periodDateInput, setPeriodDateInput] = useState('');
+  const [periodNotesInput, setPeriodNotesInput] = useState('');
+  const [periodDate, setPeriodDate] = useState(new Date());
+  const [showPeriodDatePicker, setShowPeriodDatePicker] = useState(false);
+  const [selectedPeriodSymptoms, setSelectedPeriodSymptoms] = useState<string[]>([]);
+  const [selectedPeriodMood, setSelectedPeriodMood] = useState<string | null>(null);
 
   // Health Modal States
   const [showMedicineModal, setShowMedicineModal] = useState(false);
@@ -98,11 +110,24 @@ export default function DashboardScreen({ navigation }: any) {
     { id: 'energy', question: 'How is your energy level?', emoji: '⚡', options: ['Very High', 'High', 'Normal', 'Low', 'Very Low'] },
   ];
 
+  const periodSymptoms = [
+    'Cramps',
+    'Headache',
+    'Bloating',
+    'Back pain',
+    'Fatigue',
+    'Acne',
+    'Tender breasts',
+    'Cravings',
+  ];
+
+  const periodMoods = ['Calm', 'Happy', 'Sensitive', 'Irritable', 'Anxious', 'Tired'];
+
   useFocusEffect(
     useCallback(() => {
       updateGreeting();
       const task = InteractionManager.runAfterInteractions(async () => {
-        await Promise.all([loadStats(), loadHealthData()]);
+        await Promise.all([loadStats(), loadHealthData(), loadProfileMeta()]);
       });
 
       return () => task.cancel();
@@ -149,6 +174,95 @@ export default function DashboardScreen({ navigation }: any) {
     if (hour < 12) setGreeting('Good morning');
     else if (hour < 18) setGreeting('Good afternoon');
     else setGreeting('Good evening');
+  };
+
+  const formatDateKey = (date: Date) => date.toISOString().split('T')[0];
+
+  const loadProfileMeta = async () => {
+    if (!user?.uid) {
+      setProfileGender(null);
+      setLastPeriodDate(null);
+      return;
+    }
+
+    const [savedGender, savedPeriodDate] = await Promise.all([
+      AsyncStorage.getItem(`profileGender:${user.uid}`),
+      AsyncStorage.getItem(`lastPeriodDate:${user.uid}`),
+    ]);
+
+    setProfileGender(savedGender === 'female' || savedGender === 'male' ? savedGender : null);
+    setLastPeriodDate(savedPeriodDate);
+  };
+
+  const openPeriodModal = () => {
+    const initialDate = lastPeriodDate ? new Date(`${lastPeriodDate}T12:00:00`) : new Date();
+    setPeriodDate(Number.isNaN(initialDate.getTime()) ? new Date() : initialDate);
+    setPeriodDateInput(lastPeriodDate || formatDateKey(new Date()));
+    setPeriodNotesInput('');
+    setSelectedPeriodSymptoms([]);
+    setSelectedPeriodMood(null);
+    setShowPeriodModal(true);
+  };
+
+  const togglePeriodSymptom = (symptom: string) => {
+    setSelectedPeriodSymptoms((current) =>
+      current.includes(symptom)
+        ? current.filter((item) => item !== symptom)
+        : [...current, symptom]
+    );
+  };
+
+  const handleSavePeriodLog = async () => {
+    if (!user?.uid) {
+      Alert.alert('Login Required', 'Please login to save period logs.');
+      return;
+    }
+
+    const date = formatDateKey(periodDate);
+
+    const storageKey = `periodLogs:${user.uid}`;
+    const existingLogs = await AsyncStorage.getItem(storageKey);
+    const logs = existingLogs ? JSON.parse(existingLogs) : [];
+    const nextLogs = [
+      {
+        id: Date.now().toString(),
+        date,
+        symptoms: selectedPeriodSymptoms,
+        mood: selectedPeriodMood,
+        notes: periodNotesInput.trim(),
+      },
+      ...logs,
+    ].slice(0, 12);
+
+    await AsyncStorage.setItem(storageKey, JSON.stringify(nextLogs));
+    await AsyncStorage.setItem(`lastPeriodDate:${user.uid}`, date);
+    setLastPeriodDate(date);
+    setShowPeriodModal(false);
+    setPeriodNotesInput('');
+    setSelectedPeriodSymptoms([]);
+    setSelectedPeriodMood(null);
+    haptics.success();
+    Alert.alert('Period Logged', 'Your period start date has been saved.');
+  };
+
+  const sanitizeText = (text: string) =>
+    text.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const getMentalHealthFeedbackForScore = (score: number) => {
+    if (score >= 80) {
+      return 'Excellent mental wellness! Keep up the great habits!';
+    }
+    if (score >= 60) {
+      return 'Good mental wellness. Small improvements can make a big difference!';
+    }
+    if (score >= 40) {
+      return 'Moderate mental wellness. Consider some self-care activities.';
+    }
+    if (score >= 20) {
+      return 'Low mental wellness. Please take time for yourself.';
+    }
+
+    return 'Please prioritize your mental health. Reach out to someone you trust.';
   };
 
   const loadStats = async () => {
@@ -239,7 +353,7 @@ export default function DashboardScreen({ navigation }: any) {
       haptics.success();
       Alert.alert(
         '✅ Health Check Complete',
-        `Your mental wellness score: ${score}/100\n\n${getMentalHealthFeedback()}`,
+        `Your mental wellness score: ${score}/100\n\n${getMentalHealthFeedbackForScore(score)}`,
         [{ text: 'Great!' }]
       );
     }
@@ -282,7 +396,7 @@ export default function DashboardScreen({ navigation }: any) {
     setShowStepModal(false);
     haptics.success();
     const progress = Math.round((steps / healthData.stepData.goal) * 100);
-    Alert.alert('👟 Steps Updated', `${steps} steps recorded (${progress}% of daily goal)`);
+    Alert.alert('Steps Updated', `${steps} steps recorded (${progress}% of daily goal)`);
   };
 
   const handleQuickAddSteps = async (extraSteps: number) => {
@@ -299,26 +413,41 @@ export default function DashboardScreen({ navigation }: any) {
     await updateStepGoal(goal);
     setStepGoalInput('');
     haptics.success();
-    Alert.alert('🎯 Goal Updated', `Daily step goal set to ${goal} steps`);
+    Alert.alert('Goal Updated', `Daily step goal set to ${goal} steps`);
   };
 
   const handleAddMedicine = async () => {
-    if (!newMedicine.name || !newMedicine.time || !newMedicine.dosage) {
+    const name = newMedicine.name.trim();
+    const time = newMedicine.time.trim();
+    const dosage = newMedicine.dosage.trim();
+
+    if (!name || !time || !dosage) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
 
-    await addMedicine(newMedicine.name, newMedicine.time, newMedicine.dosage);
+    if (!/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/.test(time)) {
+      Alert.alert('Invalid Time', 'Please enter time like 9:00 AM or 21:00.');
+      return;
+    }
+
+    const saved = await addMedicine(name, time, dosage);
+    if (!saved) {
+      Alert.alert('Error', 'Medicine could not be saved. Please try again.');
+      return;
+    }
+
     setNewMedicine({ name: '', time: '', dosage: '' });
     setShowAddMedicine(false);
+    await loadHealthData();
     haptics.success();
-    Alert.alert('✅ Medicine Added', `${newMedicine.name} at ${newMedicine.time}`);
+    Alert.alert('Medicine Added', name + ' at ' + time);
   };
 
   const handleTakeMedicine = async (id: string, name: string) => {
     await takeMedicine(id);
     haptics.medium();
-    Alert.alert('💊 Medicine Taken', `${name} marked as taken. Great job staying healthy!`);
+    Alert.alert('Medicine Taken', `${name} marked as taken. Great job staying healthy!`);
   };
 
   const handleDeleteMedicine = (id: string, name: string) => {
@@ -346,13 +475,188 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const mentalProgressPercent = ((mentalQuestionIndex + 1) / healthQuestions.length) * 100;
+  const taskCompletionPercent =
+    taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0;
+  const focusGoalSeconds = 60 * 60;
+  const focusProgressPercent = Math.min(100, Math.round((focusStats.today / focusGoalSeconds) * 100));
+  const chartWidth = Math.min(screenWidth - Spacing.lg * 2 - 40, 320);
+  const nextTask = recentTasks.find((task) => !task.done);
+  const focusNudge =
+    focusStats.today >= focusGoalSeconds
+      ? 'Focus goal reached today.'
+      : `${Math.max(0, 60 - Math.round(focusStats.today / 60))} min left to reach 1h focus.`;
 
   const styles = StyleSheet.create({
     bg: { flex: 1, backgroundColor: colors.background },
     container: { padding: Spacing.lg, paddingBottom: Spacing.xxxl },
-    header: { marginBottom: Spacing.xl },
+    header: { marginBottom: Spacing.lg },
     greeting: { ...Typography.h1, color: colors.text, fontSize: 30 },
     subGreeting: { ...Typography.body, color: colors.textSecondary, marginTop: Spacing.xs },
+    heroCard: {
+      backgroundColor: colors.primary,
+      borderRadius: BorderRadius.xxl,
+      padding: Spacing.xl,
+      marginBottom: Spacing.xl,
+      ...Shadows.large,
+    },
+    heroEyebrow: {
+      ...Typography.caption,
+      color: '#FFFFFF',
+      opacity: 0.82,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+      marginBottom: Spacing.xs,
+    },
+    heroTitle: {
+      ...Typography.h1,
+      color: '#FFFFFF',
+      fontSize: 30,
+      lineHeight: 36,
+      marginBottom: Spacing.sm,
+    },
+    heroSubtitle: {
+      ...Typography.body,
+      color: '#FFFFFF',
+      opacity: 0.86,
+      lineHeight: 22,
+      marginBottom: Spacing.lg,
+    },
+    heroActions: { flexDirection: 'row', gap: Spacing.sm },
+    heroPrimaryButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#FFFFFF',
+      borderRadius: BorderRadius.round,
+      paddingVertical: Spacing.md,
+      gap: Spacing.xs,
+    },
+    heroPrimaryText: { ...Typography.button, color: colors.primary },
+    heroSecondaryButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.16)',
+      borderRadius: BorderRadius.round,
+      paddingVertical: Spacing.md,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.28)',
+      gap: Spacing.xs,
+    },
+    heroSecondaryText: { ...Typography.button, color: '#FFFFFF' },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.sm,
+      marginTop: Spacing.xs,
+    },
+    sectionTitle: { ...Typography.h3, color: colors.text },
+    sectionLink: { ...Typography.caption, color: colors.primary, fontWeight: '700' },
+    emptyCard: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.lg,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Shadows.small,
+    },
+    emptyTitle: { ...Typography.h3, color: colors.text, marginBottom: Spacing.xs },
+    emptyText: { ...Typography.caption, color: colors.textSecondary, lineHeight: 19 },
+    periodCard: {
+      backgroundColor: colors.accent + '12',
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.lg,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.accent + '35',
+    },
+    periodHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.sm,
+    },
+    periodTitle: { ...Typography.h3, color: colors.text },
+    periodText: { ...Typography.caption, color: colors.textSecondary, lineHeight: 19 },
+    periodButton: {
+      marginTop: Spacing.md,
+      backgroundColor: colors.accent,
+      borderRadius: BorderRadius.round,
+      paddingVertical: Spacing.md,
+      alignItems: 'center',
+    },
+    periodButtonText: { ...Typography.button, color: '#FFFFFF' },
+    periodDateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    periodDateText: { ...Typography.body, color: colors.text, fontWeight: '600' },
+    periodPickerWrap: {
+      alignItems: 'center',
+      marginBottom: Spacing.md,
+    },
+    chipGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    periodChip: {
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.round,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    periodChipActive: {
+      backgroundColor: colors.accent + '18',
+      borderColor: colors.accent,
+    },
+    periodChipText: { ...Typography.caption, color: colors.textSecondary, fontWeight: '600' },
+    periodChipTextActive: { color: colors.accent },
+    overviewCard: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.xxl,
+      padding: Spacing.md,
+      marginBottom: Spacing.lg,
+      overflow: 'hidden',
+      ...Shadows.medium,
+    },
+    chartWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    overviewTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: Spacing.sm,
+      marginBottom: Spacing.sm,
+    },
+    overviewTitle: { ...Typography.h2, color: colors.text, fontSize: 20 },
+    overviewFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    overviewMetric: { flex: 1, alignItems: 'center' },
+    overviewDot: { width: 12, height: 12, borderRadius: 6, marginBottom: Spacing.xs },
+    overviewMetricLabel: { ...Typography.caption, color: colors.textSecondary, textAlign: 'center' },
+    overviewMetricValue: { ...Typography.caption, color: colors.text, fontWeight: '700', marginTop: 2 },
 
     // Health Hero Card
     healthHeroCard: {
@@ -362,6 +666,7 @@ export default function DashboardScreen({ navigation }: any) {
       marginBottom: Spacing.xl,
       borderWidth: 1,
       borderColor: colors.primary + '30',
+      overflow: 'hidden',
       ...Shadows.medium,
     },
     healthHeader: {
@@ -371,6 +676,23 @@ export default function DashboardScreen({ navigation }: any) {
       marginBottom: Spacing.md,
     },
     healthTitle: { ...Typography.h2, color: colors.primary, fontSize: 20 },
+    healthSummaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: Spacing.md,
+      marginTop: Spacing.md,
+    },
+    healthMiniStat: {
+      flex: 1,
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.primary + '20',
+    },
+    healthMiniValue: { ...Typography.h3, color: colors.text },
+    healthMiniLabel: { ...Typography.caption, color: colors.textSecondary, marginTop: 2 },
     healthScore: {
       ...Typography.h1,
       fontSize: 36,
@@ -449,17 +771,24 @@ export default function DashboardScreen({ navigation }: any) {
     progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: BorderRadius.round },
 
     // Stats Grid
-    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: Spacing.md },
     statCard: {
       flex: 1,
       minWidth: '47%',
       backgroundColor: colors.card,
       borderRadius: BorderRadius.xl,
       padding: Spacing.lg,
+      minHeight: 132,
       ...Shadows.small,
+    },
+    statCardActive: {
+      borderWidth: 1,
+      borderColor: colors.primary + '35',
+      backgroundColor: colors.primary + '08',
     },
     statValue: { ...Typography.h2, color: colors.text, marginTop: Spacing.sm, marginBottom: Spacing.xs },
     statLabel: { ...Typography.caption, color: colors.textSecondary },
+    statHint: { ...Typography.caption, color: colors.primary, marginTop: Spacing.xs, fontWeight: '600' },
 
     // Recent Tasks
     recentTaskCard: {
@@ -502,6 +831,9 @@ export default function DashboardScreen({ navigation }: any) {
       width: '90%',
       maxHeight: '85%',
       ...Shadows.medium,
+    },
+    modalScrollContent: {
+      paddingBottom: Spacing.sm,
     },
     modalTitle: { ...Typography.h2, color: colors.text, marginBottom: Spacing.lg, textAlign: 'center' },
     modalSubtitle: {
@@ -636,110 +968,89 @@ export default function DashboardScreen({ navigation }: any) {
               <Text style={styles.greeting}>
                 {greeting}, {getDisplayName()}!
               </Text>
-              <Text style={styles.subGreeting}>Ready to focus and get things done?</Text>
+              <Text style={styles.subGreeting}>Your daily command center is ready.</Text>
             </View>
 
-            {/* Health & Wellness Card */}
-            <Animated.View style={[styles.healthHeroCard, { transform: [{ scale: pulseAnim }] }]}>
-              <View style={styles.healthHeader}>
-                <Text style={styles.healthTitle}>💚 Health & Wellness</Text>
-                <Ionicons name="heart" size={28} color={colors.primary} />
-              </View>
-
-              <ProgressChart
-                data={{
-                  labels: ['Mental', 'Sleep', 'Steps', 'Tasks'],
-                  data: [
-                    healthData.mentalHealthScore / 100,
-                    getRecentSleepAverage(7) / 12,
-                    getStepProgress() / 100,
-                    taskStats.completed / (taskStats.total || 1),
-                  ],
-                }}
-                width={screenWidth - Spacing.xl * 2 - 32}
-                height={180}
-                strokeWidth={12}
-                radius={28}
-                chartConfig={chartConfig}
-                hideLegend={false}
-              />
-
-              <Text style={styles.healthScore}>{healthData.mentalHealthScore}/100</Text>
-              <Text style={styles.healthScoreLabel}>Mental Wellness Score</Text>
-              <Text style={styles.healthFeedback}>{getMentalHealthFeedback()}</Text>
-
-              <View style={styles.healthActions}>
+            <View style={styles.heroCard}>
+              <Text style={styles.heroEyebrow}>Today's Plan</Text>
+              <Text style={styles.heroTitle}>
+                {nextTask ? `Start with "${nextTask.title}"` : 'Build momentum with one clear task'}
+              </Text>
+              <Text style={styles.heroSubtitle}>
+                {nextTask
+                  ? `${taskStats.pending} pending tasks. ${focusNudge}`
+                  : 'Add a task, start a focus session, and let WorkTwin track your progress.'}
+              </Text>
+              <View style={styles.heroActions}>
                 <TouchableOpacity
-                  style={styles.healthButton}
-                  onPress={() => setShowMentalModal(true)}
-                  activeOpacity={0.85}
+                  style={styles.heroPrimaryButton}
+                  onPress={() => navigation.navigate('Timer')}
+                  activeOpacity={0.88}
                 >
-                  <Ionicons name="clipboard" size={18} color={colors.primary} />
-                  <Text style={styles.statLabel}>Check-in</Text>
+                  <Ionicons name="play" size={18} color={colors.primary} />
+                  <Text style={styles.heroPrimaryText}>Start Focus</Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
-                  style={styles.healthButton}
-                  onPress={() => setShowSleepModal(true)}
-                  activeOpacity={0.85}
+                  style={styles.heroSecondaryButton}
+                  onPress={() => navigation.navigate('Tasks')}
+                  activeOpacity={0.88}
                 >
-                  <Ionicons name="bed" size={18} color={colors.info} />
-                  <Text style={styles.statLabel}>Sleep</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.healthButton}
-                  onPress={() => setShowStepModal(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="walk" size={18} color={colors.success} />
-                  <Text style={styles.statLabel}>Steps</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.healthButton}
-                  onPress={() => setShowMedicineModal(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="medkit" size={18} color={colors.warning} />
-                  <Text style={styles.statLabel}>Medicines</Text>
+                  <Ionicons name="add" size={18} color="#FFFFFF" />
+                  <Text style={styles.heroSecondaryText}>Add Task</Text>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
 
-            {/* Medicine Reminders Section */}
-            {healthData.medicines.length > 0 && (
-              <View style={styles.medicineSection}>
-                <Text style={styles.medicineTitle}>💊 Today's Medicines</Text>
-                {healthData.medicines.slice(0, 3).map((med) => (
-                  <View key={med.id} style={styles.medicineItem}>
-                    <View style={styles.medicineInfo}>
-                      <Text style={styles.medicineName}>{med.name}</Text>
-                      <Text style={styles.medicineDosage}>{med.dosage}</Text>
-                      <Text style={styles.medicineTime}>⏰ {med.time}</Text>
-                    </View>
-                    {!med.taken ? (
-                      <TouchableOpacity
-                        style={styles.takenBtn}
-                        onPress={() => handleTakeMedicine(med.id, med.name)}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={styles.takenText}>Take</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={[styles.takenBtn, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.takenText, { color: colors.success }]}>✓ Taken</Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
+            <TouchableOpacity
+              style={styles.overviewCard}
+              onPress={() => navigation.navigate('Insights')}
+              activeOpacity={0.88}
+            >
+              <View style={styles.overviewTitleRow}>
+                <Ionicons name="bar-chart" size={22} color={colors.primary} />
+                <Text style={styles.overviewTitle}>Your Progress Overview</Text>
               </View>
-            )}
+              <View style={styles.chartWrap}>
+                <ProgressChart
+                  data={{
+                    labels: ['Tasks', 'Focus', 'Productivity'],
+                    data: [
+                      taskStats.total > 0 ? taskStats.completed / taskStats.total : 0,
+                      Math.min(focusStats.today / focusGoalSeconds, 1),
+                      Math.min(productivity / 10, 1),
+                    ],
+                  }}
+                  width={chartWidth}
+                  height={150}
+                  strokeWidth={12}
+                  radius={28}
+                  chartConfig={chartConfig}
+                  hideLegend
+                />
+              </View>
+              <View style={styles.overviewFooter}>
+                <View style={styles.overviewMetric}>
+                  <View style={[styles.overviewDot, { backgroundColor: colors.primary }]} />
+                  <Text style={styles.overviewMetricLabel}>Tasks Done</Text>
+                  <Text style={styles.overviewMetricValue}>{taskCompletionPercent}%</Text>
+                </View>
+                <View style={styles.overviewMetric}>
+                  <View style={[styles.overviewDot, { backgroundColor: colors.secondary }]} />
+                  <Text style={styles.overviewMetricLabel}>Today's Focus</Text>
+                  <Text style={styles.overviewMetricValue}>{focusProgressPercent}%</Text>
+                </View>
+                <View style={styles.overviewMetric}>
+                  <View style={[styles.overviewDot, { backgroundColor: colors.accent }]} />
+                  <Text style={styles.overviewMetricLabel}>Productivity</Text>
+                  <Text style={styles.overviewMetricValue}>{Math.round(productivity * 10)}%</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
 
             {/* Statistics Section */}
             <View style={styles.statsGrid}>
               <TouchableOpacity
-                style={styles.statCard}
+                style={[styles.statCard, styles.statCardActive]}
                 onPress={() => navigation.navigate('Tasks')}
                 activeOpacity={0.85}
               >
@@ -748,6 +1059,7 @@ export default function DashboardScreen({ navigation }: any) {
                   {taskStats.completed}/{taskStats.total}
                 </Text>
                 <Text style={styles.statLabel}>Tasks Completed</Text>
+                <Text style={styles.statHint}>{taskCompletionPercent}% complete</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -758,6 +1070,7 @@ export default function DashboardScreen({ navigation }: any) {
                 <Ionicons name="timer-outline" size={24} color={colors.secondary} />
                 <Text style={styles.statValue}>{formatTime(focusStats.today)}</Text>
                 <Text style={styles.statLabel}>Today's Focus</Text>
+                <Text style={styles.statHint}>{focusProgressPercent}% of 1h</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -805,31 +1118,215 @@ export default function DashboardScreen({ navigation }: any) {
               </View>
             </TouchableOpacity>
 
-            {/* Recent Tasks */}
-            {recentTasks.length > 0 && (
-              <View>
-                <Text style={styles.medicineTitle}>📋 Recent Tasks</Text>
-                {recentTasks.slice(0, 3).map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    style={styles.recentTaskCard}
-                    onPress={() => navigation.navigate('Tasks')}
-                    activeOpacity={0.85}
-                  >
-                    <View
-                      style={[
-                        styles.taskDot,
-                        { backgroundColor: task.done ? colors.success : colors.primary },
-                      ]}
-                    />
-                    <Text style={[styles.taskTitle, task.done && styles.taskDone]}>
-                      {task.title}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                ))}
+            {/* Health & Wellness Card */}
+            <Animated.View style={[styles.healthHeroCard, { transform: [{ scale: pulseAnim }] }]}>
+              <View style={styles.healthHeader}>
+                <Text style={styles.healthTitle}>Wellness Check</Text>
+                <Ionicons name="heart" size={28} color={colors.primary} />
+              </View>
+
+              <View style={styles.chartWrap}>
+                <ProgressChart
+                  data={{
+                    labels: ['Mental', 'Sleep', 'Steps', 'Tasks'],
+                    data: [
+                      healthData.mentalHealthScore / 100,
+                      getRecentSleepAverage(7) / 12,
+                      getStepProgress() / 100,
+                      taskStats.completed / (taskStats.total || 1),
+                    ],
+                  }}
+                  width={chartWidth}
+                  height={145}
+                  strokeWidth={11}
+                  radius={25}
+                  chartConfig={chartConfig}
+                  hideLegend
+                />
+              </View>
+
+              <Text style={styles.healthScore}>{healthData.mentalHealthScore}/100</Text>
+              <Text style={styles.healthScoreLabel}>Mental Wellness Score</Text>
+              <Text style={styles.healthFeedback}>{sanitizeText(getMentalHealthFeedback())}</Text>
+
+              <View style={styles.healthSummaryRow}>
+                <View style={styles.healthMiniStat}>
+                  <Text style={styles.healthMiniValue}>{getStepProgress()}%</Text>
+                  <Text style={styles.healthMiniLabel}>Step goal</Text>
+                </View>
+                <View style={styles.healthMiniStat}>
+                  <Text style={styles.healthMiniValue}>{getRecentSleepAverage(7)}h</Text>
+                  <Text style={styles.healthMiniLabel}>Avg sleep</Text>
+                </View>
+                <View style={styles.healthMiniStat}>
+                  <Text style={styles.healthMiniValue}>{healthData.medicines.length}</Text>
+                  <Text style={styles.healthMiniLabel}>Medicines</Text>
+                </View>
+              </View>
+
+              <View style={styles.healthActions}>
+                <TouchableOpacity
+                  style={styles.healthButton}
+                  onPress={() => setShowMentalModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="clipboard" size={18} color={colors.primary} />
+                  <Text style={styles.statLabel}>Check-in</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.healthButton}
+                  onPress={() => setShowSleepModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="bed" size={18} color={colors.info} />
+                  <Text style={styles.statLabel}>Sleep</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.healthButton}
+                  onPress={() => setShowStepModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="walk" size={18} color={colors.success} />
+                  <Text style={styles.statLabel}>Steps</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.healthButton}
+                  onPress={() => {
+                    if (healthData.medicines.length === 0) {
+                      setShowAddMedicine(true);
+                    } else {
+                      setShowMedicineModal(true);
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="medkit" size={18} color={colors.warning} />
+                  <Text style={styles.statLabel}>Medicines</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+
+            {profileGender === 'female' && (
+              <View style={styles.periodCard}>
+                <View style={styles.periodHeader}>
+                  <Text style={styles.periodTitle}>Period Log</Text>
+                  <Ionicons name="calendar-outline" size={22} color={colors.accent} />
+                </View>
+                <Text style={styles.periodText}>
+                  {lastPeriodDate
+                    ? `Last period start: ${lastPeriodDate}. Keep this updated for better health tracking.`
+                    : 'Track your period start date so your wellness overview feels more personal.'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.periodButton}
+                  onPress={openPeriodModal}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.periodButtonText}>Log Period</Text>
+                </TouchableOpacity>
               </View>
             )}
+
+            {/* Medicine Reminders Section */}
+            <View style={styles.medicineSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Medicine Reminders</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (healthData.medicines.length === 0) {
+                      setShowAddMedicine(true);
+                    } else {
+                      setShowMedicineModal(true);
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.sectionLink}>
+                    {healthData.medicines.length === 0 ? 'Add' : 'Manage'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {healthData.medicines.length > 0 ? (
+                <>
+                  {healthData.medicines.slice(0, 3).map((med) => (
+                    <View key={med.id} style={styles.medicineItem}>
+                      <View style={styles.medicineInfo}>
+                        <Text style={styles.medicineName}>{med.name}</Text>
+                        <Text style={styles.medicineDosage}>{med.dosage}</Text>
+                        <Text style={styles.medicineTime}>Time: {med.time}</Text>
+                      </View>
+                      {!med.taken ? (
+                        <TouchableOpacity
+                          style={styles.takenBtn}
+                          onPress={() => handleTakeMedicine(med.id, med.name)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.takenText}>Take</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={[styles.takenBtn, { backgroundColor: colors.surface }]}>
+                          <Text style={[styles.takenText, { color: colors.success }]}>Taken</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.emptyCard}
+                  onPress={() => setShowAddMedicine(true)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.emptyTitle}>No medicine reminders yet</Text>
+                  <Text style={styles.emptyText}>Add your first reminder so health habits stay visible beside your productivity goals.</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Recent Tasks */}
+            <View>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Tasks</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Tasks')} activeOpacity={0.85}>
+                  <Text style={styles.sectionLink}>View all</Text>
+                </TouchableOpacity>
+              </View>
+              {recentTasks.length > 0 ? (
+                <>
+                  {recentTasks.slice(0, 3).map((task) => (
+                    <TouchableOpacity
+                      key={task.id}
+                      style={styles.recentTaskCard}
+                      onPress={() => navigation.navigate('Tasks')}
+                      activeOpacity={0.85}
+                    >
+                      <View
+                        style={[
+                          styles.taskDot,
+                          { backgroundColor: task.done ? colors.success : colors.primary },
+                        ]}
+                      />
+                      <Text style={[styles.taskTitle, task.done && styles.taskDone]}>
+                        {task.title}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  ))}
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.emptyCard}
+                  onPress={() => navigation.navigate('Tasks')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.emptyTitle}>No tasks yet</Text>
+                  <Text style={styles.emptyText}>Create a small first task and WorkTwin will turn it into today's plan.</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* Quick Actions */}
             <View style={styles.quickActions}>
@@ -909,7 +1406,7 @@ export default function DashboardScreen({ navigation }: any) {
       <Modal visible={showSleepModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>😴 Sleep Log</Text>
+            <Text style={styles.modalTitle}>Sleep Log</Text>
 
             <Text style={styles.modalSubtitle}>Hours of Sleep</Text>
             <View style={styles.sleepRow}>
@@ -977,7 +1474,7 @@ export default function DashboardScreen({ navigation }: any) {
       <Modal visible={showStepModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>👟 Step Tracker</Text>
+            <Text style={styles.modalTitle}>Step Tracker</Text>
             <Text style={styles.modalSubtitle}>
               Current: {healthData.stepData.steps} / {healthData.stepData.goal} steps
             </Text>
@@ -1046,7 +1543,7 @@ export default function DashboardScreen({ navigation }: any) {
       <Modal visible={showMedicineModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>💊 Medicine Reminders</Text>
+            <Text style={styles.modalTitle}>Medicine Reminders</Text>
 
             {healthData.medicines.length === 0 ? (
               <Text style={styles.modalText}>No medicines added yet.</Text>
@@ -1082,7 +1579,10 @@ export default function DashboardScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={styles.modalButton}
-              onPress={() => setShowAddMedicine(true)}
+              onPress={() => {
+                setShowMedicineModal(false);
+                setShowAddMedicine(true);
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.modalButtonText}>+ Add Medicine</Text>
@@ -1102,7 +1602,7 @@ export default function DashboardScreen({ navigation }: any) {
       <Modal visible={showAddMedicine} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>➕ Add Medicine</Text>
+            <Text style={styles.modalTitle}>Add Medicine</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Medicine Name"
@@ -1134,6 +1634,110 @@ export default function DashboardScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.modalButtonSecondary}
               onPress={() => setShowAddMedicine(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showPeriodModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.modalTitle}>Period Log</Text>
+              <Text style={styles.modalSubtitle}>Start Date</Text>
+              <TouchableOpacity
+                style={styles.periodDateButton}
+                onPress={() => setShowPeriodDatePicker(true)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.periodDateText}>{formatDateKey(periodDate)}</Text>
+                <Ionicons name="calendar-outline" size={22} color={colors.accent} />
+              </TouchableOpacity>
+              {showPeriodDatePicker && (
+                <View style={styles.periodPickerWrap}>
+                  <DateTimePicker
+                    value={periodDate}
+                    mode="date"
+                    maximumDate={new Date()}
+                    display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                    onChange={(_event, selectedDate) => {
+                      if (Platform.OS !== 'ios') {
+                        setShowPeriodDatePicker(false);
+                      }
+                      if (selectedDate) {
+                        setPeriodDate(selectedDate);
+                        setPeriodDateInput(formatDateKey(selectedDate));
+                      }
+                    }}
+                  />
+                </View>
+              )}
+
+              <Text style={styles.modalSubtitle}>Major Symptoms</Text>
+              <View style={styles.chipGrid}>
+                {periodSymptoms.map((symptom) => {
+                  const selected = selectedPeriodSymptoms.includes(symptom);
+                  return (
+                    <TouchableOpacity
+                      key={symptom}
+                      style={[styles.periodChip, selected && styles.periodChipActive]}
+                      onPress={() => togglePeriodSymptom(symptom)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.periodChipText, selected && styles.periodChipTextActive]}>
+                        {symptom}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.modalSubtitle}>Mood</Text>
+              <View style={styles.chipGrid}>
+                {periodMoods.map((mood) => {
+                  const selected = selectedPeriodMood === mood;
+                  return (
+                    <TouchableOpacity
+                      key={mood}
+                      style={[styles.periodChip, selected && styles.periodChipActive]}
+                      onPress={() => setSelectedPeriodMood(mood)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.periodChipText, selected && styles.periodChipTextActive]}>
+                        {mood}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.modalSubtitle}>Optional Notes</Text>
+              <TextInput
+                style={[styles.modalInput, { minHeight: 90, textAlignVertical: 'top' }]}
+                placeholder="Anything else you want to remember"
+                placeholderTextColor={colors.textMuted}
+                value={periodNotesInput}
+                onChangeText={setPeriodNotesInput}
+                multiline
+              />
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleSavePeriodLog}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>Save Period Log</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButtonSecondary}
+              onPress={() => setShowPeriodModal(false)}
               activeOpacity={0.85}
             >
               <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
