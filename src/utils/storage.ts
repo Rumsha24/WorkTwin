@@ -5,10 +5,19 @@ const TASKS_KEY = 'WORKTWIN_TASKS';
 const FOCUS_KEY = 'WORKTWIN_FOCUS';
 const PRODUCTIVITY_KEY = 'WORKTWIN_PRODUCTIVITY';
 
+let activeStorageUserId: string | null = null;
+
+export const setActiveStorageUser = (userId: string | null) => {
+  activeStorageUserId = userId;
+};
+
+export const getScopedStorageKey = (key: string, userId = activeStorageUserId): string =>
+  userId ? `${key}:${userId}` : key;
+
 // Task Operations
 export const loadTasks = async (): Promise<Task[]> => {
   try {
-    const data = await AsyncStorage.getItem(TASKS_KEY);
+    const data = await AsyncStorage.getItem(getScopedStorageKey(TASKS_KEY));
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('loadTasks error:', error);
@@ -18,7 +27,7 @@ export const loadTasks = async (): Promise<Task[]> => {
 
 export const saveTasks = async (tasks: Task[]): Promise<void> => {
   try {
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    await AsyncStorage.setItem(getScopedStorageKey(TASKS_KEY), JSON.stringify(tasks));
   } catch (error) {
     console.error('saveTasks error:', error);
   }
@@ -65,7 +74,7 @@ export const deleteTask = async (taskId: string): Promise<boolean> => {
 // Focus Session Operations
 export const loadFocus = async (): Promise<FocusSession[]> => {
   try {
-    const data = await AsyncStorage.getItem(FOCUS_KEY);
+    const data = await AsyncStorage.getItem(getScopedStorageKey(FOCUS_KEY));
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('loadFocus error:', error);
@@ -75,7 +84,7 @@ export const loadFocus = async (): Promise<FocusSession[]> => {
 
 export const saveFocus = async (sessions: FocusSession[]): Promise<void> => {
   try {
-    await AsyncStorage.setItem(FOCUS_KEY, JSON.stringify(sessions));
+    await AsyncStorage.setItem(getScopedStorageKey(FOCUS_KEY), JSON.stringify(sessions));
   } catch (error) {
     console.error('saveFocus error:', error);
   }
@@ -97,7 +106,7 @@ export const addFocusSession = async (session: FocusSession): Promise<boolean> =
 // Productivity Trends
 export const loadProductivityTrends = async (): Promise<ProductivityTrend[]> => {
   try {
-    const data = await AsyncStorage.getItem(PRODUCTIVITY_KEY);
+    const data = await AsyncStorage.getItem(getScopedStorageKey(PRODUCTIVITY_KEY));
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('loadProductivityTrends error:', error);
@@ -134,7 +143,7 @@ const updateProductivityTrend = async (session: FocusSession): Promise<void> => 
       });
     }
 
-    await AsyncStorage.setItem(PRODUCTIVITY_KEY, JSON.stringify(trends));
+    await AsyncStorage.setItem(getScopedStorageKey(PRODUCTIVITY_KEY), JSON.stringify(trends));
   } catch (error) {
     console.error('updateProductivityTrend error:', error);
   }
@@ -231,7 +240,11 @@ export const formatDuration = (seconds: number): string => {
 
 export const clearAllData = async (): Promise<boolean> => {
   try {
-    await AsyncStorage.multiRemove([TASKS_KEY, FOCUS_KEY, PRODUCTIVITY_KEY]);
+    await AsyncStorage.multiRemove([
+      getScopedStorageKey(TASKS_KEY),
+      getScopedStorageKey(FOCUS_KEY),
+      getScopedStorageKey(PRODUCTIVITY_KEY),
+    ]);
     return true;
   } catch (error) {
     console.error('clearAllData error:', error);

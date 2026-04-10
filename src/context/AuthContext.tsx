@@ -1,6 +1,8 @@
 import React, { createContext, useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { login as authLogin, loginAsGuest as authLoginAsGuest, register as authRegister, logout as authLogout } from '../services/authService';
+import { setActiveStorageUser } from '../utils/storage';
+import { DEMO_USER, seedPresentationData } from '../utils/demoData';
 
 export type AuthContextType = {
   user: User | null;
@@ -24,6 +26,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setActiveStorageUser(currentUser?.uid ?? null);
       setUser(currentUser);
       setLoading(false);
     });
@@ -32,6 +35,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (email: string, password: string) => {
     const result = await authLogin(email, password);
+    if (
+      email.trim().toLowerCase() === DEMO_USER.email &&
+      password === DEMO_USER.password
+    ) {
+      setActiveStorageUser(result.uid);
+      await seedPresentationData(result.uid);
+    }
     return result;
   };
 

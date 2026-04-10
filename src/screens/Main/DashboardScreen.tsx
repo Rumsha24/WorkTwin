@@ -32,9 +32,27 @@ import {
 } from '../../utils/storage';
 import { Task, FocusSession } from '../../utils/types';
 import { haptics } from '../../utils/haptics';
-import { seedPresentationData } from '../../utils/demoData';
+import { BreathingExercise } from '../../components/health/BreathingExercise';
+import { notificationService } from '../../services/notificationService';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+type WellnessReminderOption = {
+  type: 'hydration' | 'break' | 'checkin' | 'breathing';
+  label: string;
+  time: string;
+  hour: number;
+  minute: number;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+type PeriodLog = {
+  id: string;
+  date: string;
+  symptoms: string[];
+  mood: string | null;
+  notes?: string;
+};
 
 export default function DashboardScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -54,6 +72,8 @@ export default function DashboardScreen({ navigation }: any) {
     getRecentSleepAverage,
     getMentalHealthFeedback,
     loadHealthData,
+    stepTracking,
+    syncTodayDeviceSteps,
   } = useHealth();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -69,6 +89,7 @@ export default function DashboardScreen({ navigation }: any) {
   const [periodDateInput, setPeriodDateInput] = useState('');
   const [periodNotesInput, setPeriodNotesInput] = useState('');
   const [periodDate, setPeriodDate] = useState(new Date());
+  const [periodLogs, setPeriodLogs] = useState<PeriodLog[]>([]);
   const [showPeriodDatePicker, setShowPeriodDatePicker] = useState(false);
   const [selectedPeriodSymptoms, setSelectedPeriodSymptoms] = useState<string[]>([]);
   const [selectedPeriodMood, setSelectedPeriodMood] = useState<string | null>(null);
@@ -79,11 +100,18 @@ export default function DashboardScreen({ navigation }: any) {
   const [showSleepModal, setShowSleepModal] = useState(false);
   const [showMentalModal, setShowMentalModal] = useState(false);
   const [showStepModal, setShowStepModal] = useState(false);
+  const [showWellnessScheduleModal, setShowWellnessScheduleModal] = useState(false);
+  const [selectedWellnessReminder, setSelectedWellnessReminder] =
+    useState<WellnessReminderOption | null>(null);
+  const [wellnessReminderTime, setWellnessReminderTime] = useState(new Date());
+  const [showWellnessTimePicker, setShowWellnessTimePicker] = useState(false);
   const [stepInput, setStepInput] = useState('');
   const [stepGoalInput, setStepGoalInput] = useState('');
   const [mentalQuestionIndex, setMentalQuestionIndex] = useState(0);
   const [mentalAnswers, setMentalAnswers] = useState<Record<string, string>>({});
   const [newMedicine, setNewMedicine] = useState({ name: '', time: '', dosage: '' });
+  const [medicineReminderTime, setMedicineReminderTime] = useState(new Date());
+  const [showMedicineTimePicker, setShowMedicineTimePicker] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
 
   // Sleep modal selected state
@@ -123,6 +151,13 @@ export default function DashboardScreen({ navigation }: any) {
   ];
 
   const periodMoods = ['Calm', 'Happy', 'Sensitive', 'Irritable', 'Anxious', 'Tired'];
+
+  const wellnessReminderOptions: WellnessReminderOption[] = [
+    { type: 'hydration', label: 'Hydrate', time: '10:00 AM', hour: 10, minute: 0, icon: 'water' },
+    { type: 'break', label: 'Break', time: '2:00 PM', hour: 14, minute: 0, icon: 'body' },
+    { type: 'checkin', label: 'Check-in', time: '8:00 PM', hour: 20, minute: 0, icon: 'clipboard' },
+    { type: 'breathing', label: 'Breathe', time: '9:00 PM', hour: 21, minute: 0, icon: 'leaf' },
+  ];
 
   useFocusEffect(
     useCallback(() => {
@@ -179,20 +214,43 @@ export default function DashboardScreen({ navigation }: any) {
 
   const formatDateKey = (date: Date) => date.toISOString().split('T')[0];
 
+  const formatDisplayDate = (dateKeyValue: string) => {
+    const date = new Date(`${dateKeyValue}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dateKeyValue;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatClockTime = (date: Date) =>
+    date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const adjustPeriodDate = (days: number) => {
+    setPeriodDate((current) => {
+      const next = new Date(current);
+      next.setDate(next.getDate() + days);
+      const today = new Date();
+      if (next > today) return today;
+      setPeriodDateInput(formatDateKey(next));
+      return next;
+    });
+  };
+
   const loadProfileMeta = async () => {
     if (!user?.uid) {
       setProfileGender(null);
       setLastPeriodDate(null);
+      setPeriodLogs([]);
       return;
     }
 
-    const [savedGender, savedPeriodDate] = await Promise.all([
+    const [savedGender, savedPeriodDate, savedPeriodLogs] = await Promise.all([
       AsyncStorage.getItem(`profileGender:${user.uid}`),
       AsyncStorage.getItem(`lastPeriodDate:${user.uid}`),
+      AsyncStorage.getItem(`periodLogs:${user.uid}`),
     ]);
 
     setProfileGender(savedGender === 'female' || savedGender === 'male' ? savedGender : null);
     setLastPeriodDate(savedPeriodDate);
+    setPeriodLogs(savedPeriodLogs ? JSON.parse(savedPeriodLogs) : []);
   };
 
   const openPeriodModal = () => {
@@ -202,6 +260,7 @@ export default function DashboardScreen({ navigation }: any) {
     setPeriodNotesInput('');
     setSelectedPeriodSymptoms([]);
     setSelectedPeriodMood(null);
+    setShowPeriodDatePicker(false);
     setShowPeriodModal(true);
   };
 
@@ -238,6 +297,7 @@ export default function DashboardScreen({ navigation }: any) {
     await AsyncStorage.setItem(storageKey, JSON.stringify(nextLogs));
     await AsyncStorage.setItem(`lastPeriodDate:${user.uid}`, date);
     setLastPeriodDate(date);
+    setPeriodLogs(nextLogs);
     setShowPeriodModal(false);
     setPeriodNotesInput('');
     setSelectedPeriodSymptoms([]);
@@ -248,6 +308,56 @@ export default function DashboardScreen({ navigation }: any) {
 
   const sanitizeText = (text: string) =>
     text.replace(/[^\x20-\x7E]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const openWellnessReminderScheduler = (option: WellnessReminderOption) => {
+    const nextReminderTime = new Date();
+    nextReminderTime.setHours(option.hour, option.minute, 0, 0);
+    setSelectedWellnessReminder(option);
+    setWellnessReminderTime(nextReminderTime);
+    setShowWellnessScheduleModal(true);
+  };
+
+  const handleScheduleWellnessReminder = async () => {
+    if (!selectedWellnessReminder) return;
+
+    haptics.medium();
+
+    const hasPermission = await notificationService.initialize();
+    if (!hasPermission) {
+      Alert.alert('Notifications Disabled', 'Please allow notifications to receive wellness reminders.');
+      return;
+    }
+
+    const hour = wellnessReminderTime.getHours();
+    const minute = wellnessReminderTime.getMinutes();
+    const storageKey = `wellnessReminder:${selectedWellnessReminder.type}:${user?.uid || 'local'}`;
+    const existingId = await AsyncStorage.getItem(storageKey);
+    if (existingId) {
+      await notificationService.cancelNotification(existingId);
+    }
+
+    const notificationId = await notificationService.scheduleWellnessReminder(
+      selectedWellnessReminder.type,
+      hour,
+      minute
+    );
+
+    if (!notificationId) {
+      Alert.alert('Reminder Not Set', 'I could not schedule that wellness reminder. Please try again.');
+      return;
+    }
+
+    await AsyncStorage.setItem(storageKey, notificationId);
+    setShowWellnessScheduleModal(false);
+    haptics.success();
+    Alert.alert(
+      'Reminder Set',
+      `${selectedWellnessReminder.label} reminder will notify you daily at ${formatReminderTime(wellnessReminderTime)}.`
+    );
+  };
+
+  const formatReminderTime = (date: Date) =>
+    date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   const getMentalHealthFeedbackForScore = (score: number) => {
     if (score >= 80) {
@@ -268,8 +378,6 @@ export default function DashboardScreen({ navigation }: any) {
 
   const loadStats = async () => {
     try {
-      await seedStarterDataIfEmpty();
-
       const tasks = await loadTasks();
       const sessions = await loadFocus();
       const trends = await loadProductivityTrends();
@@ -315,18 +423,6 @@ export default function DashboardScreen({ navigation }: any) {
       });
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
-    }
-  };
-
-  const seedStarterDataIfEmpty = async () => {
-    const [tasks, sessions, trends] = await Promise.all([
-      loadTasks(),
-      loadFocus(),
-      loadProductivityTrends(),
-    ]);
-
-    if (tasks.length === 0 || sessions.length === 0 || trends.length === 0) {
-      await seedPresentationData(user?.uid || 'presentation-local');
     }
   };
 
@@ -433,11 +529,11 @@ export default function DashboardScreen({ navigation }: any) {
 
   const handleAddMedicine = async () => {
     const name = newMedicine.name.trim();
-    const time = newMedicine.time.trim();
+    const time = newMedicine.time.trim() || formatClockTime(medicineReminderTime);
     const dosage = newMedicine.dosage.trim();
 
-    if (!name || !time || !dosage) {
-      Alert.alert('Error', 'Please fill all fields');
+    if (!name || !dosage) {
+      Alert.alert('Error', 'Please add medicine name and dosage');
       return;
     }
 
@@ -453,6 +549,8 @@ export default function DashboardScreen({ navigation }: any) {
     }
 
     setNewMedicine({ name: '', time: '', dosage: '' });
+    setMedicineReminderTime(new Date());
+    setShowMedicineTimePicker(false);
     setShowAddMedicine(false);
     await loadHealthData();
     haptics.success();
@@ -477,6 +575,14 @@ export default function DashboardScreen({ navigation }: any) {
         },
       },
     ]);
+  };
+
+  const handleMedicineTimeChange = (_event: any, selectedDate?: Date) => {
+    setShowMedicineTimePicker(false);
+    if (selectedDate) {
+      setMedicineReminderTime(selectedDate);
+      setNewMedicine((current) => ({ ...current, time: formatClockTime(selectedDate) }));
+    }
   };
 
   const chartConfig = {
@@ -605,6 +711,19 @@ export default function DashboardScreen({ navigation }: any) {
       alignItems: 'center',
     },
     periodButtonText: { ...Typography.button, color: '#FFFFFF' },
+    periodLogList: {
+      gap: Spacing.sm,
+      marginTop: Spacing.md,
+    },
+    periodLogItem: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.accent + '22',
+    },
+    periodLogDate: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    periodLogMeta: { ...Typography.caption, color: colors.textSecondary, marginTop: 4, lineHeight: 18 },
     periodDateButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -617,10 +736,74 @@ export default function DashboardScreen({ navigation }: any) {
       borderColor: colors.border,
     },
     periodDateText: { ...Typography.body, color: colors.text, fontWeight: '600' },
+    periodDateControls: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    periodDateControl: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.sm,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    periodDateControlText: { ...Typography.caption, color: colors.text, fontWeight: '700' },
+    pickerHelperText: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginTop: -Spacing.sm,
+      marginBottom: Spacing.md,
+      textAlign: 'center',
+    },
     periodPickerWrap: {
       alignItems: 'center',
       marginBottom: Spacing.md,
     },
+    timePickerButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: Spacing.md,
+    },
+    timePickerValue: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    timePickerInlineWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: Platform.OS === 'ios' ? Spacing.xs : 0,
+      marginTop: -Spacing.sm,
+      marginBottom: Spacing.md,
+      overflow: 'hidden',
+    },
+    quickTimeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    quickTimeChip: {
+      flex: 1,
+      minWidth: '30%',
+      backgroundColor: colors.primary + '10',
+      borderRadius: BorderRadius.round,
+      paddingVertical: Spacing.sm,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.primary + '24',
+    },
+    quickTimeText: { ...Typography.caption, color: colors.primary, fontWeight: '700' },
+    quickTimeSubText: { ...Typography.caption, color: colors.textMuted, fontSize: 10, marginTop: 2 },
     chipGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -740,6 +923,59 @@ export default function DashboardScreen({ navigation }: any) {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    wellnessReminderCard: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.lg,
+      marginBottom: Spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Shadows.small,
+    },
+    reminderHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.xs,
+    },
+    reminderTitle: { ...Typography.h3, color: colors.text },
+    reminderText: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      marginBottom: Spacing.md,
+    },
+    reminderGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+    },
+    reminderChip: {
+      flex: 1,
+      minWidth: '47%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      backgroundColor: colors.primary + '10',
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.primary + '24',
+    },
+    reminderChipText: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    reminderChipSub: { ...Typography.caption, color: colors.textSecondary, marginTop: 2 },
+    reminderPickerButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginVertical: Spacing.md,
+    },
+    reminderPickerText: { ...Typography.h3, color: colors.text },
 
     // Medicine List
     medicineSection: { marginBottom: Spacing.lg },
@@ -965,6 +1201,40 @@ export default function DashboardScreen({ navigation }: any) {
       borderColor: colors.primary + '30',
     },
     quickStepChipText: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    autoStepCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      backgroundColor:
+        stepTracking.status === 'active' ? colors.success + '12' : colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor:
+        stepTracking.status === 'active' ? colors.success + '35' : colors.border,
+      marginBottom: Spacing.md,
+    },
+    autoStepText: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 18,
+    },
+    syncStepButton: {
+      backgroundColor: colors.primary + '12',
+      borderRadius: BorderRadius.round,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      alignSelf: 'center',
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+      marginBottom: Spacing.md,
+    },
+    syncStepButtonText: {
+      ...Typography.caption,
       color: colors.primary,
       fontWeight: '700',
     },
@@ -1209,6 +1479,15 @@ export default function DashboardScreen({ navigation }: any) {
 
                 <TouchableOpacity
                   style={styles.healthButton}
+                  onPress={() => setShowBreathingModal(true)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="leaf" size={18} color={colors.accent} />
+                  <Text style={styles.statLabel}>Breathe</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.healthButton}
                   onPress={() => {
                     if (healthData.medicines.length === 0) {
                       setShowAddMedicine(true);
@@ -1223,6 +1502,32 @@ export default function DashboardScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             </Animated.View>
+
+            <View style={styles.wellnessReminderCard}>
+              <View style={styles.reminderHeaderRow}>
+                <Text style={styles.reminderTitle}>Wellness Reminders</Text>
+                <Ionicons name="notifications-outline" size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.reminderText}>
+                Tap once to schedule daily wellness notifications for healthy focus habits.
+              </Text>
+              <View style={styles.reminderGrid}>
+                {wellnessReminderOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.type}
+                    style={styles.reminderChip}
+                    onPress={() => openWellnessReminderScheduler(option)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name={option.icon} size={22} color={colors.primary} />
+                    <View>
+                      <Text style={styles.reminderChipText}>{option.label}</Text>
+                      <Text style={styles.reminderChipSub}>{option.time}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
             {profileGender === 'female' && (
               <View style={styles.periodCard}>
@@ -1493,6 +1798,27 @@ export default function DashboardScreen({ navigation }: any) {
             <Text style={styles.modalSubtitle}>
               Current: {healthData.stepData.steps} / {healthData.stepData.goal} steps
             </Text>
+            <View style={styles.autoStepCard}>
+              <Ionicons
+                name={stepTracking.status === 'active' ? 'walk' : 'information-circle-outline'}
+                size={22}
+                color={stepTracking.status === 'active' ? colors.success : colors.primary}
+              />
+              <Text style={styles.autoStepText}>{stepTracking.message}</Text>
+            </View>
+            {stepTracking.available ? (
+              <TouchableOpacity
+                style={styles.syncStepButton}
+                onPress={async () => {
+                  await syncTodayDeviceSteps();
+                  haptics.success();
+                  Alert.alert('Steps Synced', 'Today\'s device step count has been refreshed.');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.syncStepButtonText}>Sync Device Steps</Text>
+              </TouchableOpacity>
+            ) : null}
             <Text style={styles.modalSubtitle}>Progress: {getStepProgress()}%</Text>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${getStepProgress()}%` }]} />
@@ -1625,13 +1951,53 @@ export default function DashboardScreen({ navigation }: any) {
               value={newMedicine.name}
               onChangeText={(text) => setNewMedicine({ ...newMedicine, name: text })}
             />
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Time (e.g., 9:00 AM)"
-              placeholderTextColor={colors.textMuted}
-              value={newMedicine.time}
-              onChangeText={(text) => setNewMedicine({ ...newMedicine, time: text })}
-            />
+            <Text style={styles.modalSubtitle}>Reminder Time</Text>
+            <TouchableOpacity
+              style={styles.timePickerButton}
+              onPress={() => setShowMedicineTimePicker((visible) => !visible)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.timePickerValue}>
+                {newMedicine.time || formatClockTime(medicineReminderTime)}
+              </Text>
+              <Ionicons name="time-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            {showMedicineTimePicker && (
+              <View style={styles.timePickerInlineWrap}>
+                <DateTimePicker
+                  value={medicineReminderTime}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={handleMedicineTimeChange}
+                />
+              </View>
+            )}
+            <View style={styles.quickTimeRow}>
+              {[
+                { label: 'Morning', hour: 9, minute: 0 },
+                { label: 'Afternoon', hour: 13, minute: 0 },
+                { label: 'Night', hour: 20, minute: 0 },
+              ].map((item) => {
+                const chipTime = new Date();
+                chipTime.setHours(item.hour, item.minute, 0, 0);
+
+                return (
+                  <TouchableOpacity
+                    key={item.label}
+                    style={styles.quickTimeChip}
+                    onPress={() => {
+                      setMedicineReminderTime(chipTime);
+                      setNewMedicine({ ...newMedicine, time: formatClockTime(chipTime) });
+                      setShowMedicineTimePicker(false);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.quickTimeText}>{item.label}</Text>
+                    <Text style={styles.quickTimeSubText}>{formatClockTime(chipTime)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             <TextInput
               style={styles.modalInput}
               placeholder="Dosage (e.g., 1 tablet)"
@@ -1667,25 +2033,44 @@ export default function DashboardScreen({ navigation }: any) {
             >
               <Text style={styles.modalTitle}>Period Log</Text>
               <Text style={styles.modalSubtitle}>Start Date</Text>
+              <View style={styles.periodDateControls}>
+                <TouchableOpacity
+                  style={styles.periodDateControl}
+                  onPress={() => adjustPeriodDate(-1)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.periodDateControlText}>Previous Day</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.periodDateControl}
+                  onPress={() => {
+                    const today = new Date();
+                    setPeriodDate(today);
+                    setPeriodDateInput(formatDateKey(today));
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.periodDateControlText}>Today</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={styles.periodDateButton}
-                onPress={() => setShowPeriodDatePicker(true)}
+                onPress={() => setShowPeriodDatePicker((visible) => !visible)}
                 activeOpacity={0.85}
               >
-                <Text style={styles.periodDateText}>{formatDateKey(periodDate)}</Text>
+                <Text style={styles.periodDateText}>{formatDisplayDate(formatDateKey(periodDate))}</Text>
                 <Ionicons name="calendar-outline" size={22} color={colors.accent} />
               </TouchableOpacity>
+              <Text style={styles.pickerHelperText}>Tap the date box to open the calendar picker.</Text>
               {showPeriodDatePicker && (
-                <View style={styles.periodPickerWrap}>
+                <View style={styles.timePickerInlineWrap}>
                   <DateTimePicker
                     value={periodDate}
                     mode="date"
                     maximumDate={new Date()}
                     display={Platform.OS === 'ios' ? 'compact' : 'default'}
                     onChange={(_event, selectedDate) => {
-                      if (Platform.OS !== 'ios') {
-                        setShowPeriodDatePicker(false);
-                      }
+                      setShowPeriodDatePicker(false);
                       if (selectedDate) {
                         setPeriodDate(selectedDate);
                         setPeriodDateInput(formatDateKey(selectedDate));
@@ -1760,6 +2145,59 @@ export default function DashboardScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={showWellnessScheduleModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Schedule {selectedWellnessReminder?.label || 'Wellness'} Reminder
+            </Text>
+            <Text style={styles.modalSubtitle}>Choose notification time</Text>
+            <TouchableOpacity
+              style={styles.reminderPickerButton}
+              onPress={() => setShowWellnessTimePicker(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
+              <Ionicons name="time-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            {showWellnessTimePicker && (
+              <DateTimePicker
+                value={wellnessReminderTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_event, selectedDate) => {
+                  if (Platform.OS !== 'ios') {
+                    setShowWellnessTimePicker(false);
+                  }
+                  if (selectedDate) {
+                    setWellnessReminderTime(selectedDate);
+                  }
+                }}
+              />
+            )}
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleScheduleWellnessReminder}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>Set Daily Reminder</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButtonSecondary}
+              onPress={() => {
+                setShowWellnessScheduleModal(false);
+                setShowWellnessTimePicker(false);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <BreathingExercise visible={showBreathingModal} onClose={() => setShowBreathingModal(false)} />
     </SafeAreaView>
   );
 }

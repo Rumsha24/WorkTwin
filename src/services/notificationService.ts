@@ -17,8 +17,10 @@ interface ScheduledNotification {
   taskId?: string;
   taskTitle: string;
   time: number;
-  type: 'task' | 'session' | 'daily' | 'medicine';
+  type: 'task' | 'session' | 'daily' | 'medicine' | 'wellness';
 }
+
+type WellnessReminderType = 'hydration' | 'break' | 'checkin' | 'breathing';
 
 class NotificationService {
   private static instance: NotificationService;
@@ -250,6 +252,81 @@ class NotificationService {
       return notificationId;
     } catch (error) {
       console.error('Error scheduling medicine reminder:', error);
+      return null;
+    }
+  }
+
+  async scheduleWellnessReminder(
+    reminderType: WellnessReminderType,
+    hour: number,
+    minute: number
+  ): Promise<string | null> {
+    try {
+      const safeHour = Math.max(0, Math.min(23, hour));
+      const safeMinute = Math.max(0, Math.min(59, minute));
+      const reminderCopy: Record<WellnessReminderType, { title: string; body: string; screen: string }> = {
+        hydration: {
+          title: 'Hydration Reminder',
+          body: 'Log a glass of water and keep your focus steady.',
+          screen: 'Timer',
+        },
+        break: {
+          title: 'Break Reminder',
+          body: 'Take a short stretch or eye break so your energy stays fresh.',
+          screen: 'Timer',
+        },
+        checkin: {
+          title: 'Wellness Check-in',
+          body: 'Log your mood, sleep, and wellness score for today.',
+          screen: 'Dashboard',
+        },
+        breathing: {
+          title: 'Breathing Reset',
+          body: 'Take one calm minute to reset your breathing.',
+          screen: 'Dashboard',
+        },
+      };
+
+      const copy = reminderCopy[reminderType];
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: copy.title,
+          body: copy.body,
+          data: {
+            type: 'wellness',
+            wellnessType: reminderType,
+            screen: copy.screen,
+          },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: safeHour,
+          minute: safeMinute,
+        },
+      });
+
+      const now = new Date();
+      const scheduledTime = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        safeHour,
+        safeMinute,
+        0,
+        0
+      ).getTime();
+
+      await this.storeNotification({
+        id: notificationId,
+        taskTitle: copy.title,
+        time: scheduledTime,
+        type: 'wellness',
+      });
+
+      return notificationId;
+    } catch (error) {
+      console.error('Error scheduling wellness reminder:', error);
       return null;
     }
   }

@@ -29,6 +29,36 @@ import { CategoryBadge } from '../../components/tasks/CategoryBadge';
 import { haptics } from '../../utils/haptics';
 import { formatDateTime } from '../../utils/storage';
 
+const taskTemplates: Array<{
+  title: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  notes: string;
+  icon: string;
+}> = [
+  {
+    title: 'Plan today\'s top 3 priorities',
+    category: 'work',
+    priority: 'high',
+    notes: 'Choose the most important tasks before starting focus time.',
+    icon: 'flag-outline',
+  },
+  {
+    title: 'Review lecture notes',
+    category: 'study',
+    priority: 'medium',
+    notes: 'Summarize key points and prepare questions.',
+    icon: 'school-outline',
+  },
+  {
+    title: 'Take a wellness break',
+    category: 'health',
+    priority: 'low',
+    notes: 'Drink water, stretch, and check in with your mood.',
+    icon: 'heart-outline',
+  },
+];
+
 export default function TaskListScreen() {
   const { colors } = useTheme();
   const { tasks, loading, isOnline, addTask, updateTask, deleteTask } = useFirestoreTasks();
@@ -145,6 +175,17 @@ export default function TaskListScreen() {
     ]);
   };
 
+  const applyTemplate = (template: (typeof taskTemplates)[number]) => {
+    haptics.light();
+    setNewTaskTitle(template.title);
+    setSelectedCategory(template.category);
+    setSelectedPriority(template.priority);
+    setNotes(template.notes);
+    setReminder(false);
+    setDueDate(null);
+    setModalVisible(true);
+  };
+
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'high':
@@ -212,6 +253,37 @@ export default function TaskListScreen() {
       marginLeft: Spacing.sm,
       fontSize: 16,
       paddingVertical: Spacing.sm,
+    },
+    templateSection: {
+      marginBottom: Spacing.md,
+    },
+    templateTitle: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginBottom: Spacing.sm,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    templateRow: {
+      gap: Spacing.sm,
+    },
+    templateChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.round,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginRight: Spacing.sm,
+    },
+    templateChipText: {
+      ...Typography.caption,
+      color: colors.text,
+      fontWeight: '600',
     },
     list: { paddingBottom: Spacing.xl },
     taskItem: {
@@ -527,6 +599,27 @@ export default function TaskListScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+        </View>
+
+        <View style={styles.templateSection}>
+          <Text style={styles.templateTitle}>Task Templates</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.templateRow}
+          >
+            {taskTemplates.map((template) => (
+              <TouchableOpacity
+                key={template.title}
+                style={styles.templateChip}
+                onPress={() => applyTemplate(template)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name={template.icon as any} size={16} color={colors.primary} />
+                <Text style={styles.templateChipText}>{template.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         {filteredTasks.length === 0 ? (

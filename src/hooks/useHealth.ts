@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Pedometer } from 'expo-sensors';
+import { useAuth } from './useAuth';
+import { getScopedStorageKey } from '../utils/storage';
 
 interface MedicineReminder {
   id: string;
@@ -31,7 +34,16 @@ interface HealthData {
   medicines: MedicineReminder[];
 }
 
+interface StepTrackingState {
+  available: boolean;
+  active: boolean;
+  status: 'checking' | 'active' | 'denied' | 'unavailable' | 'manual';
+  message: string;
+}
+
 export function useHealth() {
+  const { user } = useAuth();
+  const scopedKey = useCallback((key: string) => getScopedStorageKey(key, user?.uid ?? null), [user?.uid]);
   const [healthData, setHealthData] = useState<HealthData>({
     mentalHealthScore: 0,
     lastMentalCheck: null,
@@ -46,14 +58,26 @@ export function useHealth() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [stepTracking, setStepTracking] = useState<StepTrackingState>({
+    available: false,
+    active: false,
+    status: 'checking',
+    message: 'Checking step sensor...',
+  });
+  const healthDataRef = useRef(healthData);
+  const liveStepBaseRef = useRef(0);
+
+  useEffect(() => {
+    healthDataRef.current = healthData;
+  }, [healthData]);
 
   const loadHealthData = useCallback(async () => {
     try {
-      const mentalHealthScore = await AsyncStorage.getItem('mentalHealthScore');
-      const lastMentalCheck = await AsyncStorage.getItem('lastMentalCheck');
-      const sleepData = await AsyncStorage.getItem('sleepData');
-      const stepData = await AsyncStorage.getItem('stepData');
-      const medicines = await AsyncStorage.getItem('medicines');
+      const mentalHealthScore = await AsyncStorage.getItem(scopedKey('mentalHealthScore'));
+      const lastMentalCheck = await AsyncStorage.getItem(scopedKey('lastMentalCheck'));
+      const sleepData = await AsyncStorage.getItem(scopedKey('sleepData'));
+      const stepData = await AsyncStorage.getItem(scopedKey('stepData'));
+      const medicines = await AsyncStorage.getItem(scopedKey('medicines'));
 
       setHealthData({
         mentalHealthScore: mentalHealthScore ? parseInt(mentalHealthScore, 10) : 0,
@@ -74,27 +98,138 @@ export function useHealth() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scopedKey]);
 
   useEffect(() => {
     loadHealthData();
   }, [loadHealthData]);
 
+  useEffect(() => {
+    if (loading) return undefined;
+
+    let subscription: Pedometer.Subscription | null = null;
+    let mounted = true;
+
+    const startStepTracking = async () => {
+      try {
+        const available = await Pedometer.isAvailableAsync();
+        if (!mounted) return;
+
+        if (!available) {
+          setStepTracking({
+            available: false,
+            active: false,
+            status: 'unavailable',
+            message: 'Automatic step tracking is not available on this device.',
+          });
+          return;
+        }
+
+        const existingPermission = await Pedometer.getPermissionsAsync();
+        const permission =
+          existingPermission.granted ? existingPermission : await Pedometer.requestPermissionsAsync();
+
+        if (!mounted) return;
+
+        if (!permission.granted) {
+          setStepTracking({
+            available: true,
+            active: false,
+            status: 'denied',
+            message: 'Step permission is off. You can still enter steps manually.',
+          });
+          return;
+        }
+
+        await syncTodayDeviceSteps();
+
+        liveStepBaseRef.current = healthDataRef.current.stepData.steps || 0;
+        subscription = Pedometer.watchStepCount((result) => {
+          persistStepCount(liveStepBaseRef.current + (result.steps || 0));
+        });
+
+        setStepTracking({
+          available: true,
+          active: true,
+          status: 'active',
+          message: 'Automatic step tracking is active while the app is open.',
+        });
+      } catch (error) {
+        console.error('Step tracking error:', error);
+        if (!mounted) return;
+        setStepTracking({
+          available: false,
+          active: false,
+          status: 'manual',
+          message: 'Automatic tracking could not start. Manual step entry is still available.',
+        });
+      }
+    };
+
+    startStepTracking();
+
+    return () => {
+      mounted = false;
+      subscription?.remove();
+    };
+  }, [loading, scopedKey]);
+
   const persistHealthData = async (data: HealthData) => {
     try {
-      await AsyncStorage.setItem('mentalHealthScore', data.mentalHealthScore.toString());
+      await AsyncStorage.setItem(scopedKey('mentalHealthScore'), data.mentalHealthScore.toString());
       await AsyncStorage.setItem(
-        'lastMentalCheck',
+        scopedKey('lastMentalCheck'),
         data.lastMentalCheck ? data.lastMentalCheck.toString() : ''
       );
-      await AsyncStorage.setItem('sleepData', JSON.stringify(data.sleepData));
-      await AsyncStorage.setItem('stepData', JSON.stringify(data.stepData));
-      await AsyncStorage.setItem('medicines', JSON.stringify(data.medicines));
+      await AsyncStorage.setItem(scopedKey('sleepData'), JSON.stringify(data.sleepData));
+      await AsyncStorage.setItem(scopedKey('stepData'), JSON.stringify(data.stepData));
+      await AsyncStorage.setItem(scopedKey('medicines'), JSON.stringify(data.medicines));
       return true;
     } catch (error) {
       console.error('Error saving health data:', error);
       return false;
     }
+  };
+
+  const persistStepCount = async (steps: number) => {
+    const safeSteps = Math.max(0, Math.round(steps));
+    const today = new Date().toISOString().split('T')[0];
+    const currentData = healthDataRef.current;
+    const existingHistory = currentData.stepData.history || [];
+
+    const existingIndex = existingHistory.findIndex((h) => h.date === today);
+    let updatedHistory = [...existingHistory];
+
+    if (existingIndex >= 0) {
+      updatedHistory[existingIndex] = { date: today, steps: safeSteps };
+    } else {
+      updatedHistory.push({ date: today, steps: safeSteps });
+    }
+
+    updatedHistory = updatedHistory.slice(-30);
+
+    const nextData: HealthData = {
+      ...currentData,
+      stepData: {
+        ...currentData.stepData,
+        steps: safeSteps,
+        date: today,
+        history: updatedHistory,
+      },
+    };
+
+    healthDataRef.current = nextData;
+    setHealthData(nextData);
+    await persistHealthData(nextData);
+  };
+
+  const syncTodayDeviceSteps = async () => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+
+    const result = await Pedometer.getStepCountAsync(start, new Date());
+    const currentSteps = healthDataRef.current.stepData.steps || 0;
+    await persistStepCount(Math.max(currentSteps, result.steps || 0));
   };
 
   const updateMentalHealthScore = async (score: number) => {
@@ -125,32 +260,7 @@ export function useHealth() {
   };
 
   const updateSteps = async (steps: number) => {
-    const today = new Date().toISOString().split('T')[0];
-    const existingHistory = healthData.stepData.history || [];
-
-    const existingIndex = existingHistory.findIndex((h) => h.date === today);
-    let updatedHistory = [...existingHistory];
-
-    if (existingIndex >= 0) {
-      updatedHistory[existingIndex] = { date: today, steps };
-    } else {
-      updatedHistory.push({ date: today, steps });
-    }
-
-    updatedHistory = updatedHistory.slice(-30);
-
-    const nextData: HealthData = {
-      ...healthData,
-      stepData: {
-        ...healthData.stepData,
-        steps,
-        date: today,
-        history: updatedHistory,
-      },
-    };
-
-    setHealthData(nextData);
-    await persistHealthData(nextData);
+    await persistStepCount(steps);
   };
 
   const addSteps = async (additionalSteps: number) => {
@@ -375,5 +485,7 @@ export function useHealth() {
     getRecentSleepAverage,
     getMentalHealthFeedback,
     loadHealthData,
+    stepTracking,
+    syncTodayDeviceSteps,
   };
 }

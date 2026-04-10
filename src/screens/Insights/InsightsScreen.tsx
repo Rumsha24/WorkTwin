@@ -10,13 +10,19 @@ import {
   Dimensions,
   RefreshControl,
   Alert,
+  Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useHealth } from '../../hooks/useHealth';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
 import {
   loadFocus,
@@ -26,15 +32,36 @@ import {
   getCompletionRate,
   getFocusStats,
   getTaskStats,
+  getScopedStorageKey,
 } from '../../utils/storage';
 import { haptics } from '../../utils/haptics';
 import { FocusSession, ProductivityTrend } from '../../utils/types';
+import { notificationService } from '../../services/notificationService';
 
 const { width: screenWidth } = Dimensions.get('window');
 const chartWidth = Math.min(screenWidth - Spacing.lg * 2 - Spacing.md * 2, 340);
 
+type WellnessReminderOption = {
+  type: 'hydration' | 'break' | 'checkin';
+  label: string;
+  time: string;
+  hour: number;
+  minute: number;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+type PeriodLog = {
+  id: string;
+  date: string;
+  symptoms: string[];
+  mood: string | null;
+  notes?: string;
+};
+
 export default function InsightsScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const { healthData, getRecentSleepAverage, getStepProgress, loadHealthData } = useHealth();
 
   // State variables
   const [refreshing, setRefreshing] = useState(false);
@@ -61,12 +88,26 @@ export default function InsightsScreen({ navigation }: any) {
     pending: 0,
   });
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
+  const [waterTodayMl, setWaterTodayMl] = useState(0);
+  const [profileGender, setProfileGender] = useState<'male' | 'female' | null>(null);
+  const [periodLogs, setPeriodLogs] = useState<PeriodLog[]>([]);
+  const [lastPeriodDate, setLastPeriodDate] = useState<string | null>(null);
+  const [showWellnessScheduleModal, setShowWellnessScheduleModal] = useState(false);
+  const [selectedWellnessReminder, setSelectedWellnessReminder] = useState<WellnessReminderOption | null>(null);
+  const [wellnessReminderTime, setWellnessReminderTime] = useState(new Date());
+  const [showWellnessTimePicker, setShowWellnessTimePicker] = useState(false);
+
+  const wellnessReminderOptions: WellnessReminderOption[] = [
+    { type: 'hydration', label: 'Hydrate', time: '10 AM', hour: 10, minute: 0, icon: 'water' },
+    { type: 'break', label: 'Break', time: '2 PM', hour: 14, minute: 0, icon: 'body' },
+    { type: 'checkin', label: 'Check-in', time: '8 PM', hour: 20, minute: 0, icon: 'clipboard' },
+  ];
 
   // Load data when screen focuses or period changes
   useFocusEffect(
     useCallback(() => {
       loadInsights();
-    }, [selectedPeriod])
+    }, [selectedPeriod, loadHealthData])
   );
 
   // Main function to load all insights data
@@ -79,6 +120,9 @@ export default function InsightsScreen({ navigation }: any) {
       const rate = await getCompletionRate();
       const fStats = await getFocusStats();
       const tStats = await getTaskStats();
+      await loadHealthData();
+      await loadWaterIntake();
+      await loadPeriodInsights();
 
       const totalSeconds = sessions.reduce((acc: number, s: any) => acc + (s.seconds || 0), 0);
       setTotalFocus(totalSeconds);
@@ -121,6 +165,41 @@ export default function InsightsScreen({ navigation }: any) {
     }
   };
 
+  const loadWaterIntake = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const stored = await AsyncStorage.getItem(getScopedStorageKey(`waterIntake:${today}`));
+      setWaterTodayMl(stored ? Number(stored) : 0);
+    } catch (error) {
+      console.error('Error loading water insight:', error);
+      setWaterTodayMl(0);
+    }
+  };
+
+  const loadPeriodInsights = async () => {
+    if (!user?.uid) {
+      setProfileGender(null);
+      setPeriodLogs([]);
+      setLastPeriodDate(null);
+      return;
+    }
+
+    try {
+      const [savedGender, savedLogs, savedLastPeriod] = await Promise.all([
+        AsyncStorage.getItem(`profileGender:${user.uid}`),
+        AsyncStorage.getItem(`periodLogs:${user.uid}`),
+        AsyncStorage.getItem(`lastPeriodDate:${user.uid}`),
+      ]);
+
+      setProfileGender(savedGender === 'female' || savedGender === 'male' ? savedGender : null);
+      setPeriodLogs(savedLogs ? JSON.parse(savedLogs) : []);
+      setLastPeriodDate(savedLastPeriod);
+    } catch (error) {
+      console.error('Error loading period insights:', error);
+      setPeriodLogs([]);
+    }
+  };
+
   const buildTrendsFromSessions = (sessions: FocusSession[]): ProductivityTrend[] => {
     const grouped = sessions.reduce<Record<string, { totalScore: number; count: number; totalFocus: number }>>(
       (acc, session) => {
@@ -155,6 +234,20 @@ export default function InsightsScreen({ navigation }: any) {
     }
 
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
+  const formatDisplayDate = (dateValue: string) => {
+    const date = new Date(`${dateValue}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dateValue;
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getDaysSinceLastPeriod = () => {
+    if (!lastPeriodDate) return null;
+    const lastDate = new Date(`${lastPeriodDate}T12:00:00`);
+    if (Number.isNaN(lastDate.getTime())) return null;
+    const diffMs = Date.now() - lastDate.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
   };
 
   // Pull to refresh handler
@@ -296,6 +389,56 @@ export default function InsightsScreen({ navigation }: any) {
     navigation.navigate(screen);
   };
 
+  const openWellnessReminderScheduler = (option: WellnessReminderOption) => {
+    const nextReminderTime = new Date();
+    nextReminderTime.setHours(option.hour, option.minute, 0, 0);
+    setSelectedWellnessReminder(option);
+    setWellnessReminderTime(nextReminderTime);
+    setShowWellnessScheduleModal(true);
+  };
+
+  const formatReminderTime = (date: Date) =>
+    date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const handleScheduleWellnessReminder = async () => {
+    if (!selectedWellnessReminder) return;
+
+    haptics.medium();
+    const hasPermission = await notificationService.initialize();
+
+    if (!hasPermission) {
+      Alert.alert('Notifications Disabled', 'Please allow notifications to receive wellness reminders.');
+      return;
+    }
+
+    const hour = wellnessReminderTime.getHours();
+    const minute = wellnessReminderTime.getMinutes();
+    const storageKey = `wellnessReminder:${selectedWellnessReminder.type}:${user?.uid || 'local'}`;
+    const existingId = await AsyncStorage.getItem(storageKey);
+    if (existingId) {
+      await notificationService.cancelNotification(existingId);
+    }
+
+    const notificationId = await notificationService.scheduleWellnessReminder(
+      selectedWellnessReminder.type,
+      hour,
+      minute
+    );
+
+    if (!notificationId) {
+      Alert.alert('Reminder Not Set', 'I could not schedule that reminder. Please try again.');
+      return;
+    }
+
+    await AsyncStorage.setItem(storageKey, notificationId);
+    setShowWellnessScheduleModal(false);
+    haptics.success();
+    Alert.alert(
+      'Reminder Set',
+      `${selectedWellnessReminder.label} reminder will notify you daily at ${formatReminderTime(wellnessReminderTime)}.`
+    );
+  };
+
   // Handle summary button - POPUP
   const handleSummaryPress = () => {
     haptics.light();
@@ -370,6 +513,149 @@ export default function InsightsScreen({ navigation }: any) {
       fontSize: 24,
     },
     statLabel: { ...Typography.caption, color: colors.textSecondary },
+    wellnessCard: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      ...Shadows.small,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.primary + '20',
+    },
+    wellnessHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.sm,
+    },
+    wellnessTitle: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    wellnessSubtext: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginBottom: Spacing.md,
+      lineHeight: 18,
+    },
+    wellnessGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    wellnessMetric: {
+      flex: 1,
+      minWidth: '47%',
+      backgroundColor: colors.primary + '10',
+      borderRadius: BorderRadius.md,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.primary + '22',
+    },
+    wellnessMetricValue: { ...Typography.h3, color: colors.text, marginTop: Spacing.xs },
+    wellnessMetricLabel: { ...Typography.caption, color: colors.textSecondary },
+    reminderRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    reminderMiniButton: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.md,
+      padding: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    reminderMiniText: { ...Typography.caption, color: colors.text, fontWeight: '700', marginTop: 4 },
+    reminderMiniSub: { ...Typography.caption, color: colors.textSecondary, fontSize: 10 },
+    periodInsightsCard: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      ...Shadows.small,
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.accent + '25',
+    },
+    periodHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.sm,
+    },
+    periodTitle: { ...Typography.body, color: colors.text, fontWeight: '800' },
+    periodSubtext: { ...Typography.caption, color: colors.textSecondary, lineHeight: 18 },
+    periodStatsRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+      marginTop: Spacing.md,
+      marginBottom: Spacing.md,
+    },
+    periodStat: {
+      flex: 1,
+      backgroundColor: colors.accent + '10',
+      borderRadius: BorderRadius.md,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.accent + '22',
+    },
+    periodStatValue: { ...Typography.h3, color: colors.text },
+    periodStatLabel: { ...Typography.caption, color: colors.textSecondary, marginTop: 2 },
+    periodLogItem: {
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.md,
+      padding: Spacing.md,
+      marginBottom: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    periodLogDate: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    periodLogMeta: { ...Typography.caption, color: colors.textSecondary, marginTop: 4, lineHeight: 18 },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: Spacing.lg,
+    },
+    modalContent: {
+      width: '100%',
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.xl,
+      ...Shadows.medium,
+    },
+    modalTitle: { ...Typography.h2, color: colors.text, marginBottom: Spacing.sm },
+    modalSubtitle: { ...Typography.body, color: colors.textSecondary, marginBottom: Spacing.md },
+    reminderPickerButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: Spacing.md,
+    },
+    reminderPickerText: { ...Typography.h3, color: colors.text },
+    modalButton: {
+      backgroundColor: colors.primary,
+      borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.md,
+      alignItems: 'center',
+      marginTop: Spacing.sm,
+    },
+    modalButtonText: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    modalButtonSecondary: {
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.md,
+      alignItems: 'center',
+      marginTop: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalButtonSecondaryText: { ...Typography.body, color: colors.textSecondary, fontWeight: '700' },
 
     chartCard: {
       backgroundColor: colors.card,
@@ -605,6 +891,115 @@ export default function InsightsScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
+          <View style={styles.wellnessCard}>
+            <View style={styles.wellnessHeader}>
+              <Text style={styles.wellnessTitle}>Wellness Snapshot</Text>
+              <Ionicons name="heart-circle" size={26} color={colors.primary} />
+            </View>
+            <Text style={styles.wellnessSubtext}>
+              Your health habits sit beside productivity here, so the presentation shows a complete wellbeing workflow.
+            </Text>
+            <View style={styles.wellnessGrid}>
+              <TouchableOpacity
+                style={styles.wellnessMetric}
+                onPress={() => navigation.navigate('Dashboard')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="happy-outline" size={22} color={colors.primary} />
+                <Text style={styles.wellnessMetricValue}>{healthData.mentalHealthScore}/100</Text>
+                <Text style={styles.wellnessMetricLabel}>Mental score</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.wellnessMetric}
+                onPress={() => navigation.navigate('Dashboard')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="walk-outline" size={22} color={colors.success} />
+                <Text style={styles.wellnessMetricValue}>{getStepProgress()}%</Text>
+                <Text style={styles.wellnessMetricLabel}>Step goal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.wellnessMetric}
+                onPress={() => navigation.navigate('Dashboard')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="bed-outline" size={22} color={colors.info} />
+                <Text style={styles.wellnessMetricValue}>{getRecentSleepAverage(7)}h</Text>
+                <Text style={styles.wellnessMetricLabel}>Avg sleep</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.wellnessMetric}
+                onPress={() => navigation.navigate('Timer')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="water-outline" size={22} color={colors.accent} />
+                <Text style={styles.wellnessMetricValue}>{waterTodayMl} ml</Text>
+                <Text style={styles.wellnessMetricLabel}>Water today</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.reminderRow}>
+              {wellnessReminderOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.type}
+                  style={styles.reminderMiniButton}
+                  onPress={() => openWellnessReminderScheduler(option)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name={option.icon} size={20} color={colors.primary} />
+                  <Text style={styles.reminderMiniText}>{option.label}</Text>
+                  <Text style={styles.reminderMiniSub}>{option.time}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {profileGender === 'female' && (
+            <TouchableOpacity
+              style={styles.periodInsightsCard}
+              onPress={() => navigation.navigate('Dashboard')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.periodHeader}>
+                <Text style={styles.periodTitle}>Period Insights</Text>
+                <Ionicons name="calendar-outline" size={24} color={colors.accent} />
+              </View>
+              <Text style={styles.periodSubtext}>
+                Recent period logs with symptoms and mood so wellness reports feel complete.
+              </Text>
+              <View style={styles.periodStatsRow}>
+                <View style={styles.periodStat}>
+                  <Text style={styles.periodStatValue}>
+                    {getDaysSinceLastPeriod() ?? '-'}
+                  </Text>
+                  <Text style={styles.periodStatLabel}>Days since last start</Text>
+                </View>
+                <View style={styles.periodStat}>
+                  <Text style={styles.periodStatValue}>{periodLogs.length}</Text>
+                  <Text style={styles.periodStatLabel}>Saved logs</Text>
+                </View>
+              </View>
+              {periodLogs.length > 0 ? (
+                periodLogs.slice(0, 4).map((log) => (
+                  <View key={log.id} style={styles.periodLogItem}>
+                    <Text style={styles.periodLogDate}>{formatDisplayDate(log.date)}</Text>
+                    <Text style={styles.periodLogMeta}>
+                      {[log.mood, ...log.symptoms].filter(Boolean).join(' | ') || 'No symptoms selected'}
+                    </Text>
+                    {log.notes ? <Text style={styles.periodLogMeta}>{log.notes}</Text> : null}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.periodSubtext}>
+                  No period logs yet. Open Dashboard and tap Log Period to add the first one.
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           {/* PRODUCTIVITY TREND CHART - CLICKABLE */}
           {trends.length > 0 ? (
             <TouchableOpacity style={styles.chartCard} onPress={handleChartPress} activeOpacity={0.9}>
@@ -764,6 +1159,57 @@ export default function InsightsScreen({ navigation }: any) {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={showWellnessScheduleModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Schedule {selectedWellnessReminder?.label || 'Wellness'} Reminder
+            </Text>
+            <Text style={styles.modalSubtitle}>Choose when you want to be notified daily.</Text>
+            <TouchableOpacity
+              style={styles.reminderPickerButton}
+              onPress={() => setShowWellnessTimePicker(true)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
+              <Ionicons name="time-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            {showWellnessTimePicker && (
+              <DateTimePicker
+                value={wellnessReminderTime}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_event, selectedDate) => {
+                  if (Platform.OS !== 'ios') {
+                    setShowWellnessTimePicker(false);
+                  }
+                  if (selectedDate) {
+                    setWellnessReminderTime(selectedDate);
+                  }
+                }}
+              />
+            )}
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={handleScheduleWellnessReminder}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>Set Daily Reminder</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButtonSecondary}
+              onPress={() => {
+                setShowWellnessScheduleModal(false);
+                setShowWellnessTimePicker(false);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -5,13 +5,15 @@ import {
   loadFocus,
   loadProductivityTrends,
   loadTasks,
+  getScopedStorageKey,
   saveFocus,
   saveTasks,
+  setActiveStorageUser,
 } from './storage';
 
 export const DEMO_USER = {
   name: 'Ayesha Khan',
-  email: 'presentation@worktwin.demo',
+  email: 'rumsha@worktwin.com',
   password: 'WorkTwin123!',
   gender: 'female' as const,
 };
@@ -31,6 +33,7 @@ const atHour = (hour: number, offsetDays = 0) => {
 
 export const seedPresentationData = async (userId: string) => {
   const now = Date.now();
+  setActiveStorageUser(userId);
   const [existingTasks, existingFocus, existingProductivity] = await Promise.all([
     loadTasks(),
     loadFocus(),
@@ -182,9 +185,10 @@ export const seedPresentationData = async (userId: string) => {
   ];
 
   const setIfMissing = async (key: string, value: string) => {
-    const existing = await AsyncStorage.getItem(key);
+    const scopedKey = getScopedStorageKey(key, userId);
+    const existing = await AsyncStorage.getItem(scopedKey);
     if (!existing) {
-      await AsyncStorage.setItem(key, value);
+      await AsyncStorage.setItem(scopedKey, value);
     }
   };
 
@@ -192,7 +196,10 @@ export const seedPresentationData = async (userId: string) => {
     existingTasks.length === 0 ? saveTasks(tasks) : Promise.resolve(),
     existingFocus.length === 0 ? saveFocus(focusSessions) : Promise.resolve(),
     existingProductivity.length === 0
-      ? AsyncStorage.setItem('WORKTWIN_PRODUCTIVITY', JSON.stringify(productivity))
+      ? AsyncStorage.setItem(
+          getScopedStorageKey('WORKTWIN_PRODUCTIVITY', userId),
+          JSON.stringify(productivity)
+        )
       : Promise.resolve(),
     setIfMissing('mentalHealthScore', '84'),
     setIfMissing('lastMentalCheck', now.toString()),

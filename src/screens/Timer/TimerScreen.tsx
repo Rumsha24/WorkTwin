@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { Spacing, BorderRadius, Typography, Shadows } from "../../theme/worktwinTheme";
 import { 
@@ -23,6 +24,7 @@ import {
   formatDuration,
   loadProductivityTrends,
   loadFocus,
+  getScopedStorageKey,
 } from "../../utils/storage";
 import { OfflineStatus } from "../../components/common/OfflineStatus";
 import { haptics } from "../../utils/haptics";
@@ -86,6 +88,7 @@ export default function TimerScreen() {
   const [showBreathingModal, setShowBreathingModal] = useState(false);
   const [showHydrationReminder, setShowHydrationReminder] = useState(false);
   const [showBreakReminder, setShowBreakReminder] = useState(false);
+  const [waterTodayMl, setWaterTodayMl] = useState(0);
   
   // Animations
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -120,6 +123,7 @@ export default function TimerScreen() {
     loadTasksData();
     loadTrendsData();
     loadStats();
+    loadWaterIntake();
   }, []);
 
   useEffect(() => {
@@ -199,6 +203,46 @@ export default function TimerScreen() {
       { text: 'Take a Break', onPress: () => setShowBreathingModal(true) },
       { text: 'Later' }
     ]);
+  };
+
+  const handleStartBreakTimer = () => {
+    const breakPreset = defaultPresets.find((preset) => preset.id === 'break');
+    const breakMinutes = breakPreset?.minutes || 5;
+    setShowBreakReminder(false);
+    setRunning(false);
+    setSelectedPreset('break');
+    setSelectedTime(breakMinutes);
+    setSeconds(breakMinutes * 60);
+    setInterruptions(0);
+    setFocusScore(10);
+    haptics.medium();
+    Alert.alert('Break Timer Ready', 'Your 5 minute break timer is ready. Press Start when you begin your break.');
+  };
+
+  const handleHydrationDone = () => {
+    setShowHydrationReminder(false);
+    haptics.medium();
+  };
+
+  const waterGoalMl = 2000;
+  const waterProgress = Math.min(100, Math.round((waterTodayMl / waterGoalMl) * 100));
+
+  const loadWaterIntake = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const stored = await AsyncStorage.getItem(getScopedStorageKey(`waterIntake:${today}`));
+      setWaterTodayMl(stored ? Number(stored) : 0);
+    } catch (error) {
+      console.error('Error loading water intake:', error);
+    }
+  };
+
+  const addWater = async (amountMl: number) => {
+    const today = new Date().toISOString().split('T')[0];
+    const nextTotal = Math.max(0, waterTodayMl + amountMl);
+    setWaterTodayMl(nextTotal);
+    await AsyncStorage.setItem(getScopedStorageKey(`waterIntake:${today}`), nextTotal.toString());
+    haptics.light();
   };
 
   const loadTasksData = async () => {
@@ -461,18 +505,46 @@ export default function TimerScreen() {
     
     // Health & Wellness Section - NEW
     healthSection: { width: "100%", marginBottom: Spacing.lg },
+    healthIntro: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      marginBottom: Spacing.md,
+      alignSelf: 'flex-start',
+    },
     healthButtons: { flexDirection: "row", gap: Spacing.sm },
     healthBtn: {
       flex: 1,
-      backgroundColor: colors.surface,
-      paddingHorizontal: Spacing.lg,
-      paddingVertical: Spacing.md,
+      backgroundColor: colors.card,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.lg,
       borderRadius: BorderRadius.lg,
       alignItems: "center",
+      justifyContent: "center",
       borderWidth: 1,
       borderColor: colors.border,
-      flexDirection: 'row',
-      gap: Spacing.sm,
+      minHeight: 104,
+      ...Shadows.small,
+    },
+    healthIconBubble: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: Spacing.sm,
+    },
+    healthBtnTitle: {
+      ...Typography.caption,
+      color: colors.text,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    healthBtnSub: {
+      ...Typography.caption,
+      color: colors.textMuted,
+      fontSize: 11,
+      marginTop: 2,
+      textAlign: 'center',
     },
     
     taskSelector: { width: "100%", marginBottom: Spacing.lg },
@@ -609,7 +681,13 @@ export default function TimerScreen() {
     noTrendsText: { ...Typography.caption, color: colors.textMuted, textAlign: 'center', marginVertical: Spacing.md },
     trendStats: { ...Typography.body, color: colors.text, marginTop: Spacing.md, textAlign: "center" },
     
-    modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: Spacing.lg,
+    },
     modalContent: {
       backgroundColor: colors.card,
       borderRadius: BorderRadius.xl,
@@ -645,15 +723,133 @@ export default function TimerScreen() {
     // Health Reminder Modal Styles
     reminderModalContent: {
       backgroundColor: colors.card,
-      borderRadius: BorderRadius.xl,
-      padding: Spacing.xl,
-      width: "85%",
+      borderRadius: BorderRadius.xxl,
+      padding: Spacing.lg,
+      width: "100%",
+      maxWidth: 390,
+      maxHeight: "86%",
       alignItems: "center",
       ...Shadows.medium,
     },
-    reminderIcon: { marginBottom: Spacing.md },
-    reminderTitle: { ...Typography.h2, color: colors.text, marginBottom: Spacing.sm },
-    reminderText: { ...Typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: Spacing.lg },
+    modalCloseButton: {
+      position: 'absolute',
+      right: Spacing.md,
+      top: Spacing.md,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      zIndex: 2,
+    },
+    reminderIcon: { marginBottom: Spacing.sm },
+    hydrateIconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.info + '18',
+      marginBottom: Spacing.md,
+    },
+    reminderTitle: { ...Typography.h2, color: colors.text, marginBottom: Spacing.xs, textAlign: 'center' },
+    reminderText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: Spacing.md,
+      lineHeight: 21,
+    },
+    waterTotalCard: {
+      width: '100%',
+      backgroundColor: colors.info + '12',
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.info + '35',
+      marginBottom: Spacing.md,
+    },
+    waterTotalText: {
+      ...Typography.h2,
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: Spacing.xs,
+    },
+    waterGoalText: {
+      ...Typography.caption,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: Spacing.sm,
+    },
+    waterProgressTrack: {
+      height: 9,
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.round,
+      overflow: 'hidden',
+    },
+    waterProgressFill: {
+      height: '100%',
+      backgroundColor: colors.info,
+      borderRadius: BorderRadius.round,
+    },
+    waterButtonGrid: {
+      width: '100%',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    waterButton: {
+      flex: 1,
+      minWidth: '45%',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    waterPrimaryButton: {
+      width: '100%',
+      backgroundColor: colors.info,
+      borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.md,
+      alignItems: 'center',
+      marginBottom: Spacing.md,
+      ...Shadows.small,
+    },
+    hydrationDoneButton: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      paddingVertical: Spacing.md,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    hydrationDoneText: {
+      ...Typography.body,
+      color: colors.textSecondary,
+      fontWeight: '700',
+    },
+    waterPrimaryButtonText: {
+      ...Typography.body,
+      color: colors.text,
+      fontWeight: '800',
+    },
+    waterButtonText: {
+      ...Typography.body,
+      color: colors.text,
+      fontWeight: '700',
+    },
+    waterButtonSub: {
+      ...Typography.caption,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
   });
 
   return (
@@ -706,27 +902,37 @@ export default function TimerScreen() {
           {/* Health & Wellness Buttons - NEW */}
           <View style={styles.healthSection}>
             <Text style={styles.sectionLabel}>Wellness</Text>
+            <Text style={styles.healthIntro}>Quick support tools for healthier focus sessions.</Text>
             <View style={styles.healthButtons}>
               <TouchableOpacity 
                 style={styles.healthBtn} 
                 onPress={() => setShowBreathingModal(true)}
               >
-                <Ionicons name="leaf" size={20} color={colors.success} />
-                <Text style={styles.presetText}>Breathing</Text>
+                <View style={[styles.healthIconBubble, { backgroundColor: colors.success + '18' }]}>
+                  <Ionicons name="leaf" size={21} color={colors.success} />
+                </View>
+                <Text style={styles.healthBtnTitle}>Breathing</Text>
+                <Text style={styles.healthBtnSub}>Calm reset</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.healthBtn} 
                 onPress={() => setShowHydrationReminder(true)}
               >
-                <Ionicons name="water" size={20} color={colors.info} />
-                <Text style={styles.presetText}>Hydrate</Text>
+                <View style={[styles.healthIconBubble, { backgroundColor: colors.info + '18' }]}>
+                  <Ionicons name="water" size={21} color={colors.info} />
+                </View>
+                <Text style={styles.healthBtnTitle}>Hydrate</Text>
+                <Text style={styles.healthBtnSub}>Drink water</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.healthBtn} 
                 onPress={() => setShowBreakReminder(true)}
               >
-                <Ionicons name="body" size={20} color={colors.warning} />
-                <Text style={styles.presetText}>Break</Text>
+                <View style={[styles.healthIconBubble, { backgroundColor: colors.warning + '18' }]}>
+                  <Ionicons name="body" size={21} color={colors.warning} />
+                </View>
+                <Text style={styles.healthBtnTitle}>Break</Text>
+                <Text style={styles.healthBtnSub}>5 min timer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -994,16 +1200,57 @@ export default function TimerScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.reminderModalContent}>
-            <Ionicons name="water" size={50} color={colors.info} style={styles.reminderIcon} />
-            <Text style={styles.reminderTitle}>💧 Hydration Time</Text>
-            <Text style={styles.reminderText}>
-              Time to drink some water! Staying hydrated helps maintain focus and energy levels.
-            </Text>
             <TouchableOpacity
-              style={[styles.modalBtn, styles.saveBtn]}
-              onPress={handleHydrationReminder}
+              style={styles.modalCloseButton}
+              onPress={() => setShowHydrationReminder(false)}
+              activeOpacity={0.85}
             >
-              <Text style={styles.saveText}>Got it!</Text>
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={styles.hydrateIconCircle}>
+              <Ionicons name="water" size={34} color={colors.info} />
+            </View>
+            <Text style={styles.reminderTitle}>Hydration</Text>
+            <Text style={styles.reminderText}>
+              Add your water intake for today. Small hydration habits help focus and energy.
+            </Text>
+            <View style={styles.waterTotalCard}>
+              <Text style={styles.waterTotalText}>{waterTodayMl} ml</Text>
+              <Text style={styles.waterGoalText}>
+                {waterProgress}% of {waterGoalMl} ml daily goal
+              </Text>
+              <View style={styles.waterProgressTrack}>
+                <View style={[styles.waterProgressFill, { width: `${waterProgress}%` }]} />
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.waterPrimaryButton} onPress={() => addWater(250)}>
+              <Text style={styles.waterPrimaryButtonText}>Add Water - 1 Glass</Text>
+            </TouchableOpacity>
+
+            <View style={styles.waterButtonGrid}>
+              <TouchableOpacity style={styles.waterButton} onPress={() => addWater(250)}>
+                <Text style={styles.waterButtonText}>+1 Glass</Text>
+                <Text style={styles.waterButtonSub}>250 ml</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.waterButton} onPress={() => addWater(500)}>
+                <Text style={styles.waterButtonText}>+Bottle</Text>
+                <Text style={styles.waterButtonSub}>500 ml</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.waterButton} onPress={() => addWater(100)}>
+                <Text style={styles.waterButtonText}>+100 ml</Text>
+                <Text style={styles.waterButtonSub}>Small sip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.waterButton} onPress={() => addWater(-250)}>
+                <Text style={styles.waterButtonText}>-1 Glass</Text>
+                <Text style={styles.waterButtonSub}>Undo</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.hydrationDoneButton}
+              onPress={handleHydrationDone}
+            >
+              <Text style={styles.hydrationDoneText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1032,7 +1279,7 @@ export default function TimerScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.saveBtn]}
-                onPress={handleBreakReminder}
+                onPress={handleStartBreakTimer}
               >
                 <Text style={styles.saveText}>Take Break</Text>
               </TouchableOpacity>

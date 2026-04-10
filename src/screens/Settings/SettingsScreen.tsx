@@ -17,6 +17,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { signOut } from 'firebase/auth';
 import { useFocusEffect } from '@react-navigation/native';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 import { auth } from '../../services/firebaseConfig';
 import { useTheme } from '../../context/ThemeContext';
@@ -33,8 +34,13 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = useState(true);
   const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  const [goalsModalVisible, setGoalsModalVisible] = useState(false);
+  const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
+  const [reportsModalVisible, setReportsModalVisible] = useState(false);
   const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [language, setLanguage] = useState('English');
 
   const email = auth.currentUser?.isAnonymous
     ? 'Guest User'
@@ -42,6 +48,7 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     loadNotificationPreference();
+    loadAdvancedPreferences();
   }, []);
 
   useFocusEffect(
@@ -59,6 +66,80 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error('Error loading notification preference:', error);
     }
+  };
+
+  const loadAdvancedPreferences = async () => {
+    try {
+      const [savedBiometric, savedLanguage] = await Promise.all([
+        AsyncStorage.getItem('biometric_enabled'),
+        AsyncStorage.getItem('app_language'),
+      ]);
+      setBiometricEnabled(savedBiometric === 'true');
+      setLanguage(savedLanguage || 'English');
+    } catch (error) {
+      console.error('Error loading advanced preferences:', error);
+    }
+  };
+
+  const handleBiometricToggle = async (value: boolean) => {
+    haptics.switch();
+
+    if (value) {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!compatible || !enrolled) {
+        Alert.alert(
+          'Biometric Unavailable',
+          'Face ID, Touch ID, or fingerprint unlock is not set up on this device.'
+        );
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Enable biometric unlock for WorkTwin',
+        fallbackLabel: 'Use passcode',
+      });
+
+      if (!result.success) {
+        Alert.alert('Not Enabled', 'Biometric authentication was cancelled.');
+        return;
+      }
+    }
+
+    setBiometricEnabled(value);
+    await AsyncStorage.setItem('biometric_enabled', value.toString());
+  };
+
+  const handleLanguageSelect = () => {
+    haptics.light();
+    Alert.alert('Language', 'Choose app language', [
+      { text: 'English', onPress: () => saveLanguage('English') },
+      { text: 'French', onPress: () => saveLanguage('French') },
+      { text: 'Spanish', onPress: () => saveLanguage('Spanish') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const saveLanguage = async (nextLanguage: string) => {
+    setLanguage(nextLanguage);
+    await AsyncStorage.setItem('app_language', nextLanguage);
+    Alert.alert('Language Saved', `${nextLanguage} selected. Full translations can be expanded from this setting.`);
+  };
+
+  const showGoals = () => {
+    haptics.light();
+    setGoalsModalVisible(true);
+  };
+
+  const showAchievements = () => {
+    haptics.light();
+    setAchievementsModalVisible(true);
+  };
+
+  const showAdvancedReports = () => {
+    haptics.light();
+    setReportsModalVisible(true);
   };
 
   const loadProfileCard = async () => {
@@ -300,6 +381,11 @@ export default function SettingsScreen() {
     },
     settingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     settingText: { ...Typography.body, color: colors.text },
+    settingHint: {
+      ...Typography.caption,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
 
     menuItem: {
       flexDirection: 'row',
@@ -416,6 +502,26 @@ export default function SettingsScreen() {
       color: colors.text,
       marginBottom: Spacing.sm,
     },
+    featureCard: {
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    featureHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      marginBottom: Spacing.xs,
+    },
+    featureTitle: {
+      ...Typography.body,
+      color: colors.text,
+      fontWeight: '700',
+      flex: 1,
+    },
   });
 
   return (
@@ -494,6 +600,23 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Security</Text>
 
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <Ionicons name="finger-print-outline" size={22} color={colors.primary} />
+                <View>
+                  <Text style={styles.settingText}>Biometric Authentication</Text>
+                  <Text style={styles.settingHint}>Face ID / Touch ID / fingerprint</Text>
+                </View>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={handleBiometricToggle}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.text}
+                ios_backgroundColor={colors.border}
+              />
+            </View>
+
             <TouchableOpacity
               style={[
                 styles.menuItem,
@@ -514,7 +637,53 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data Management</Text>
+            <Text style={styles.sectionTitle}>Productivity Features</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={showGoals}>
+              <View style={styles.menuLeft}>
+                <Ionicons name="flag-outline" size={22} color={colors.primary} />
+                <Text style={styles.menuText}>Goals System</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={showAchievements}>
+              <View style={styles.menuLeft}>
+                <Ionicons name="trophy-outline" size={22} color={colors.warning} />
+                <Text style={styles.menuText}>Achievements</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={showAdvancedReports}
+            >
+              <View style={styles.menuLeft}>
+                <Ionicons name="analytics-outline" size={22} color={colors.accent} />
+                <Text style={styles.menuText}>Advanced Reports</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Language</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleLanguageSelect}>
+              <View style={styles.menuLeft}>
+                <Ionicons name="language-outline" size={22} color={colors.primary} />
+                <View>
+                  <Text style={styles.menuText}>Multi-language Support</Text>
+                  <Text style={styles.settingHint}>{language}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Backup and Restore</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleExportData}>
               <View style={styles.menuLeft}>
@@ -760,6 +929,213 @@ export default function SettingsScreen() {
                   <Text style={styles.modalButtonText}>✨ Discover Your Focus ✨</Text>
                 </TouchableOpacity>
               </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Goals System Modal */}
+      <Modal visible={goalsModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Goals System</Text>
+              <TouchableOpacity onPress={() => setGoalsModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{ alignItems: 'center', marginBottom: Spacing.lg }}>
+                <Ionicons name="flag-outline" size={60} color={colors.primary} />
+                <Text style={[styles.modalText, { textAlign: 'center', marginTop: Spacing.sm }]}>
+                  WorkTwin tracks goals across productivity and wellness so users can see progress in one place.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="timer-outline" size={22} color={colors.primary} />
+                  <Text style={styles.featureTitle}>Daily Focus Goal</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Target: 120 minutes of focused work per day. Timer sessions automatically contribute to this goal.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="calendar-outline" size={22} color={colors.secondary} />
+                  <Text style={styles.featureTitle}>Weekly Focus Goal</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Target: 600 minutes per week. Insights summarizes focus totals and productivity trends.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="walk-outline" size={22} color={colors.success} />
+                  <Text style={styles.featureTitle}>Step Goal</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Target: 10,000 steps per day. The app supports automatic step tracking plus manual backup entry.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="checkbox-outline" size={22} color={colors.accent} />
+                  <Text style={styles.featureTitle}>Task Completion Goal</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Dashboard and Insights show task completion percentage so users can improve consistency.
+                </Text>
+              </View>
+
+              <TouchableOpacity style={styles.modalButton} onPress={() => setGoalsModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Got it</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Achievements Modal */}
+      <Modal visible={achievementsModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Achievements</Text>
+              <TouchableOpacity onPress={() => setAchievementsModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{ alignItems: 'center', marginBottom: Spacing.lg }}>
+                <Ionicons name="trophy-outline" size={60} color={colors.warning} />
+                <Text style={[styles.modalText, { textAlign: 'center', marginTop: Spacing.sm }]}>
+                  Achievements make productivity feel rewarding and help users build repeatable habits.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="play-circle-outline" size={22} color={colors.primary} />
+                  <Text style={styles.featureTitle}>Focus Starter</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Complete your first focus timer session.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="checkmark-done-outline" size={22} color={colors.success} />
+                  <Text style={styles.featureTitle}>Task Finisher</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Complete 5 tasks and improve your completion rate.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="heart-outline" size={22} color={colors.accent} />
+                  <Text style={styles.featureTitle}>Wellness Builder</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Log sleep, steps, and a mental wellness check-in.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="water-outline" size={22} color={colors.info} />
+                  <Text style={styles.featureTitle}>Hydration Hero</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Respond to hydration reminders during focus sessions.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setAchievementsModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Advanced Reports Modal */}
+      <Modal visible={reportsModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Advanced Reports</Text>
+              <TouchableOpacity onPress={() => setReportsModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{ alignItems: 'center', marginBottom: Spacing.lg }}>
+                <Ionicons name="analytics-outline" size={60} color={colors.accent} />
+                <Text style={[styles.modalText, { textAlign: 'center', marginTop: Spacing.sm }]}>
+                  Reports combine focus, task, productivity, and wellness signals to show how the user is improving.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="trending-up-outline" size={22} color={colors.primary} />
+                  <Text style={styles.featureTitle}>Productivity Trends</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Weekly, monthly, and yearly productivity scores are visualized in Insights with a trend chart.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="timer-outline" size={22} color={colors.secondary} />
+                  <Text style={styles.featureTitle}>Focus Analytics</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Total focus time, today's focus, average session length, and session count help measure deep work.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="checkbox-outline" size={22} color={colors.success} />
+                  <Text style={styles.featureTitle}>Task Completion</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Completion rate, pending tasks, and total tasks show progress toward daily planning goals.
+                </Text>
+              </View>
+
+              <View style={styles.featureCard}>
+                <View style={styles.featureHeader}>
+                  <Ionicons name="bulb-outline" size={22} color={colors.warning} />
+                  <Text style={styles.featureTitle}>Smart Recommendations</Text>
+                </View>
+                <Text style={styles.featureText}>
+                  Insights gives personalized suggestions based on focus time, productivity, and task progress.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => setReportsModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>Close</Text>
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
