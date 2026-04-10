@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { updateProfile } from 'firebase/auth';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 import { Spacing, BorderRadius, Typography, Shadows } from '../../theme/worktwinTheme';
@@ -32,18 +36,56 @@ export default function ProfileScreen({ navigation }: any) {
   const [weeklyGoal, setWeeklyGoal] = useState(600);
   const [photoURL, setPhotoURL] = useState<string | undefined>(user?.photoURL || undefined);
 
+  const profileStorageKey = user?.uid ? `profile:${user.uid}` : null;
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [profileStorageKey])
+  );
+
+  const loadProfile = async () => {
+    if (!profileStorageKey) return;
+
+    try {
+      const saved = await AsyncStorage.getItem(profileStorageKey);
+      if (!saved) return;
+
+      const profile = JSON.parse(saved);
+      setDisplayName(profile.displayName || user?.displayName || user?.email?.split('@')[0] || 'Guest User');
+      setOccupation(profile.occupation || '');
+      setBio(profile.bio || '');
+      setDailyGoal(Number(profile.dailyGoal || 120));
+      setWeeklyGoal(Number(profile.weeklyGoal || 600));
+      setPhotoURL(profile.photoURL || user?.photoURL || undefined);
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
   const pickImage = async () => {
     haptics.medium();
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
     });
 
     if (!result.canceled && result.assets[0]) {
+      const pickedUri = result.assets[0].uri;
+      const extension = pickedUri.split('.').pop()?.split('?')[0] || 'jpg';
+      const persistedUri =
+        FileSystem.documentDirectory && user?.uid
+          ? `${FileSystem.documentDirectory}profile-${user.uid}-${Date.now()}.${extension}`
+          : pickedUri;
+
+      if (persistedUri !== pickedUri) {
+        await FileSystem.copyAsync({ from: pickedUri, to: persistedUri });
+      }
+
       haptics.success();
-      setPhotoURL(result.assets[0].uri);
+      setPhotoURL(persistedUri);
     }
   };
 
@@ -51,12 +93,37 @@ export default function ProfileScreen({ navigation }: any) {
     try {
       setSaving(true);
       haptics.medium();
-      setTimeout(() => {
-        setSaving(false);
-        setEditMode(false);
-        haptics.success();
-        Alert.alert('Success', 'Profile updated locally.');
-      }, 600);
+
+      if (profileStorageKey) {
+        await AsyncStorage.setItem(
+          profileStorageKey,
+          JSON.stringify({
+            displayName: displayName.trim(),
+            occupation: occupation.trim(),
+            bio: bio.trim(),
+            dailyGoal,
+            weeklyGoal,
+            photoURL,
+            updatedAt: Date.now(),
+          })
+        );
+      }
+
+      if (user) {
+        try {
+          await updateProfile(user, {
+            displayName: displayName.trim(),
+            photoURL: photoURL || null,
+          });
+        } catch {
+          // Local profile storage is the source of truth for picked device images.
+        }
+      }
+
+      setSaving(false);
+      setEditMode(false);
+      haptics.success();
+      Alert.alert('Success', 'Profile updated.');
     } catch (error) {
       setSaving(false);
       haptics.error();

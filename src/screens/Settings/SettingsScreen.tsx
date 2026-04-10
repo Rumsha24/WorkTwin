@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { signOut } from 'firebase/auth';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { auth } from '../../services/firebaseConfig';
 import { useTheme } from '../../context/ThemeContext';
@@ -32,6 +33,8 @@ export default function SettingsScreen() {
   const [notifications, setNotifications] = useState(true);
   const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
+  const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
 
   const email = auth.currentUser?.isAnonymous
     ? 'Guest User'
@@ -41,6 +44,12 @@ export default function SettingsScreen() {
     loadNotificationPreference();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadProfileCard();
+    }, [auth.currentUser?.uid])
+  );
+
   const loadNotificationPreference = async () => {
     try {
       const saved = await AsyncStorage.getItem('notifications_enabled');
@@ -49,6 +58,29 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error('Error loading notification preference:', error);
+    }
+  };
+
+  const loadProfileCard = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser?.uid) {
+      setProfilePhotoURL(null);
+      setProfileDisplayName(null);
+      return;
+    }
+
+    try {
+      const saved = await AsyncStorage.getItem(`profile:${currentUser.uid}`);
+      const profile = saved ? JSON.parse(saved) : null;
+      setProfilePhotoURL(profile?.photoURL || currentUser.photoURL || null);
+      setProfileDisplayName(
+        profile?.displayName ||
+          currentUser.displayName ||
+          currentUser.email ||
+          (currentUser.isAnonymous ? 'Guest User' : null)
+      );
+    } catch (error) {
+      console.error('Error loading profile card:', error);
     }
   };
 
@@ -227,6 +259,12 @@ export default function SettingsScreen() {
       ...Shadows.small,
     },
     profileInfo: { marginLeft: Spacing.lg, flex: 1 },
+    profileAvatar: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.surface,
+    },
     profileName: {
       ...Typography.body,
       fontWeight: '600',
@@ -400,9 +438,13 @@ export default function SettingsScreen() {
               navigation.navigate('Profile');
             }}
           >
-            <Ionicons name="person-circle" size={60} color={colors.primary} />
+            {profilePhotoURL ? (
+              <Image source={{ uri: profilePhotoURL }} style={styles.profileAvatar} />
+            ) : (
+              <Ionicons name="person-circle" size={60} color={colors.primary} />
+            )}
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{email}</Text>
+              <Text style={styles.profileName}>{profileDisplayName || email}</Text>
               <Text style={styles.profileBadge}>
                 {auth.currentUser?.isAnonymous ? 'Guest Account' : 'Registered User'}
               </Text>

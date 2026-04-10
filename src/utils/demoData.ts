@@ -1,11 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { FocusSession, ProductivityTrend, Task } from './types';
-import { saveFocus, saveTasks } from './storage';
+import {
+  loadFocus,
+  loadProductivityTrends,
+  loadTasks,
+  saveFocus,
+  saveTasks,
+} from './storage';
 
 export const DEMO_USER = {
-  name: 'Rumsha Ahmed',
-  email: 'rumsha@worktwin.demo',
+  name: 'Ayesha Khan',
+  email: 'presentation@worktwin.demo',
   password: 'WorkTwin123!',
   gender: 'female' as const,
 };
@@ -25,6 +31,11 @@ const atHour = (hour: number, offsetDays = 0) => {
 
 export const seedPresentationData = async (userId: string) => {
   const now = Date.now();
+  const [existingTasks, existingFocus, existingProductivity] = await Promise.all([
+    loadTasks(),
+    loadFocus(),
+    loadProductivityTrends(),
+  ]);
 
   const tasks: Task[] = [
     {
@@ -170,17 +181,26 @@ export const seedPresentationData = async (userId: string) => {
     },
   ];
 
+  const setIfMissing = async (key: string, value: string) => {
+    const existing = await AsyncStorage.getItem(key);
+    if (!existing) {
+      await AsyncStorage.setItem(key, value);
+    }
+  };
+
   await Promise.all([
-    saveTasks(tasks),
-    saveFocus(focusSessions),
-    AsyncStorage.setItem('WORKTWIN_PRODUCTIVITY', JSON.stringify(productivity)),
-    AsyncStorage.setItem('mentalHealthScore', '84'),
-    AsyncStorage.setItem('lastMentalCheck', now.toString()),
-    AsyncStorage.setItem('sleepData', JSON.stringify(sleepData)),
-    AsyncStorage.setItem('stepData', JSON.stringify(stepData)),
-    AsyncStorage.setItem('medicines', JSON.stringify(medicines)),
-    AsyncStorage.setItem(`profileGender:${userId}`, DEMO_USER.gender),
-    AsyncStorage.setItem(`lastPeriodDate:${userId}`, dateKey(-7)),
-    AsyncStorage.setItem(`periodLogs:${userId}`, JSON.stringify(periodLogs)),
+    existingTasks.length === 0 ? saveTasks(tasks) : Promise.resolve(),
+    existingFocus.length === 0 ? saveFocus(focusSessions) : Promise.resolve(),
+    existingProductivity.length === 0
+      ? AsyncStorage.setItem('WORKTWIN_PRODUCTIVITY', JSON.stringify(productivity))
+      : Promise.resolve(),
+    setIfMissing('mentalHealthScore', '84'),
+    setIfMissing('lastMentalCheck', now.toString()),
+    setIfMissing('sleepData', JSON.stringify(sleepData)),
+    setIfMissing('stepData', JSON.stringify(stepData)),
+    setIfMissing('medicines', JSON.stringify(medicines)),
+    setIfMissing(`profileGender:${userId}`, DEMO_USER.gender),
+    setIfMissing(`lastPeriodDate:${userId}`, dateKey(-7)),
+    setIfMissing(`periodLogs:${userId}`, JSON.stringify(periodLogs)),
   ]);
 };

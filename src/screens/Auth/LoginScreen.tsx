@@ -36,7 +36,6 @@ export default function LoginScreen({ navigation }: any) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   
   // Animation values - removed shaking animation
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -51,7 +50,46 @@ export default function LoginScreen({ navigation }: any) {
     try {
       setLoading(true);
       haptics.medium();
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      const trimmedEmail = email.trim();
+      const isDemoLogin =
+        trimmedEmail.toLowerCase() === DEMO_USER.email.toLowerCase() &&
+        password === DEMO_USER.password;
+
+      let signedInUser;
+      if (isDemoLogin) {
+        try {
+          const result = await signInWithEmailAndPassword(auth, DEMO_USER.email, DEMO_USER.password);
+          signedInUser = result.user;
+        } catch (error: any) {
+          if (error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-credential') {
+            try {
+              const result = await createUserWithEmailAndPassword(
+                auth,
+                DEMO_USER.email,
+                DEMO_USER.password
+              );
+              signedInUser = result.user;
+            } catch {
+              const result = await signInAnonymously(auth);
+              signedInUser = result.user;
+            }
+          } else {
+            throw error;
+          }
+        }
+
+        if (signedInUser.displayName !== DEMO_USER.name) {
+          try {
+            await updateProfile(signedInUser, { displayName: DEMO_USER.name });
+          } catch {
+            // Presentation data still works even if Firebase profile updates are unavailable.
+          }
+        }
+
+        await seedPresentationData(signedInUser.uid);
+      } else {
+        await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      }
       haptics.success();
     } catch (error: any) {
       haptics.error();
@@ -72,55 +110,6 @@ export default function LoginScreen({ navigation }: any) {
       Alert.alert('Guest Login Failed', error?.message || 'Unable to continue as guest');
     } finally {
       setGuestLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    try {
-      setDemoLoading(true);
-      haptics.medium();
-
-      let demoUser;
-      try {
-        const result = await signInWithEmailAndPassword(
-          auth,
-          DEMO_USER.email,
-          DEMO_USER.password
-        );
-        demoUser = result.user;
-      } catch (error: any) {
-        if (error?.code === 'auth/user-not-found' || error?.code === 'auth/invalid-credential') {
-          try {
-            const result = await createUserWithEmailAndPassword(
-              auth,
-              DEMO_USER.email,
-              DEMO_USER.password
-            );
-            demoUser = result.user;
-          } catch {
-            const result = await signInAnonymously(auth);
-            demoUser = result.user;
-          }
-        } else {
-          throw error;
-        }
-      }
-
-      if (demoUser.displayName !== DEMO_USER.name) {
-        try {
-          await updateProfile(demoUser, { displayName: DEMO_USER.name });
-        } catch {
-          // Demo data still works even if Firebase profile updates are unavailable.
-        }
-      }
-
-      await seedPresentationData(demoUser.uid);
-      haptics.success();
-    } catch (error: any) {
-      haptics.error();
-      Alert.alert('Demo Login Failed', error?.message || 'Unable to open presentation demo');
-    } finally {
-      setDemoLoading(false);
     }
   };
 
@@ -189,32 +178,6 @@ export default function LoginScreen({ navigation }: any) {
       fontWeight: '700',
       fontSize: 16,
     },
-    demoButton: {
-      backgroundColor: colors.secondary,
-      paddingVertical: 16,
-      borderRadius: 14,
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    demoButtonText: {
-      color: '#FFFFFF',
-      fontWeight: '800',
-      fontSize: 16,
-    },
-    demoDetails: {
-      backgroundColor: colors.surface,
-      borderRadius: 14,
-      padding: 12,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    demoDetailsText: {
-      color: colors.textSecondary,
-      fontSize: 13,
-      lineHeight: 19,
-      textAlign: 'center',
-    },
     footer: {
       flexDirection: 'row',
       justifyContent: 'center',
@@ -280,7 +243,7 @@ export default function LoginScreen({ navigation }: any) {
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  editable={!loading && !guestLoading && !demoLoading}
+                  editable={!loading && !guestLoading}
                 />
               </View>
             </View>
@@ -300,12 +263,12 @@ export default function LoginScreen({ navigation }: any) {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  editable={!loading && !guestLoading && !demoLoading}
+                  editable={!loading && !guestLoading}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
-                  disabled={loading || guestLoading || demoLoading}
+                  disabled={loading || guestLoading}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -319,7 +282,7 @@ export default function LoginScreen({ navigation }: any) {
             <TouchableOpacity
               style={styles.loginButton}
               onPress={handleLogin}
-              disabled={loading || guestLoading || demoLoading}
+              disabled={loading || guestLoading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -329,27 +292,9 @@ export default function LoginScreen({ navigation }: any) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.demoButton}
-              onPress={handleDemoLogin}
-              disabled={loading || guestLoading || demoLoading}
-            >
-              {demoLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.demoButtonText}>Use Presentation Demo</Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.demoDetails}>
-              <Text style={styles.demoDetailsText}>
-                Demo user: {DEMO_USER.name} | {DEMO_USER.email}
-              </Text>
-            </View>
-
-            <TouchableOpacity
               style={styles.guestButton}
               onPress={handleGuestLogin}
-              disabled={loading || guestLoading || demoLoading}
+              disabled={loading || guestLoading}
             >
               {guestLoading ? (
                 <ActivityIndicator color={colors.textSecondary} />

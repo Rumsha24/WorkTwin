@@ -28,8 +28,10 @@ import {
   getTaskStats,
 } from '../../utils/storage';
 import { haptics } from '../../utils/haptics';
+import { FocusSession, ProductivityTrend } from '../../utils/types';
 
 const { width: screenWidth } = Dimensions.get('window');
+const chartWidth = Math.min(screenWidth - Spacing.lg * 2 - Spacing.md * 2, 340);
 
 export default function InsightsScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -41,7 +43,7 @@ export default function InsightsScreen({ navigation }: any) {
   const [totalSessions, setTotalSessions] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
-  const [trends, setTrends] = useState<any[]>([]);
+  const [trends, setTrends] = useState<ProductivityTrend[]>([]);
   const [productivityStats, setProductivityStats] = useState({
     average: 0,
     best: 0,
@@ -86,19 +88,22 @@ export default function InsightsScreen({ navigation }: any) {
       setCompletedTasks(completed);
       setTotalTasks(tasks.length);
 
-      if (productivityTrends.length > 0) {
+      const trendSource =
+        productivityTrends.length > 0 ? productivityTrends : buildTrendsFromSessions(sessions);
+
+      if (trendSource.length > 0) {
         const avg =
-          productivityTrends.reduce((acc: number, t: any) => acc + (t.productivityScore || 0), 0) /
-          productivityTrends.length;
+          trendSource.reduce((acc: number, t: ProductivityTrend) => acc + (t.productivityScore || 0), 0) /
+          trendSource.length;
         setAvgProductivity(Math.round(avg * 10) / 10);
 
-        let filteredTrends = productivityTrends;
+        let filteredTrends = trendSource;
         if (selectedPeriod === 'week') {
-          filteredTrends = productivityTrends.slice(-7);
+          filteredTrends = trendSource.slice(-7);
         } else if (selectedPeriod === 'month') {
-          filteredTrends = productivityTrends.slice(-30);
+          filteredTrends = trendSource.slice(-30);
         } else {
-          filteredTrends = productivityTrends.slice(-12);
+          filteredTrends = trendSource.slice(-12);
         }
         setTrends(filteredTrends);
       } else {
@@ -114,6 +119,42 @@ export default function InsightsScreen({ navigation }: any) {
       console.error('Error loading insights:', error);
       Alert.alert('Error', 'Failed to load insights');
     }
+  };
+
+  const buildTrendsFromSessions = (sessions: FocusSession[]): ProductivityTrend[] => {
+    const grouped = sessions.reduce<Record<string, { totalScore: number; count: number; totalFocus: number }>>(
+      (acc, session) => {
+        const date = new Date(session.endedAt).toISOString().split('T')[0];
+        const score = Number(session.productivity || session.focusScore || 5);
+        const normalizedScore = score > 10 ? Math.round((score / 10) * 10) / 10 : score;
+
+        acc[date] = acc[date] || { totalScore: 0, count: 0, totalFocus: 0 };
+        acc[date].totalScore += Math.min(10, normalizedScore);
+        acc[date].count += 1;
+        acc[date].totalFocus += Number(session.seconds || 0);
+        return acc;
+      },
+      {}
+    );
+
+    return Object.entries(grouped)
+      .map(([date, value]) => ({
+        date,
+        productivityScore: Math.round((value.totalScore / value.count) * 10) / 10,
+        totalFocus: value.totalFocus,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  };
+
+  const formatTrendLabel = (dateValue: string) => {
+    const date = new Date(`${dateValue}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return '';
+
+    if (selectedPeriod === 'week') {
+      return date.toLocaleDateString(undefined, { weekday: 'short' });
+    }
+
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
   // Pull to refresh handler
@@ -336,6 +377,7 @@ export default function InsightsScreen({ navigation }: any) {
       padding: Spacing.md,
       ...Shadows.small,
       marginBottom: Spacing.lg,
+      overflow: 'hidden',
     },
     chartTitle: {
       ...Typography.body,
@@ -343,7 +385,26 @@ export default function InsightsScreen({ navigation }: any) {
       color: colors.text,
       marginBottom: Spacing.md,
     },
-    chartWrapper: { alignItems: 'center' },
+    chartWrapper: {
+      alignItems: 'center',
+      overflow: 'hidden',
+      marginLeft: -Spacing.xs,
+    },
+    chartMetaRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+    },
+    chartPill: {
+      backgroundColor: colors.primary + '15',
+      borderRadius: BorderRadius.round,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+    },
+    chartPillText: { ...Typography.caption, color: colors.primary, fontWeight: '700' },
 
     insightsGrid: {
       flexDirection: 'row',
@@ -547,18 +608,26 @@ export default function InsightsScreen({ navigation }: any) {
           {/* PRODUCTIVITY TREND CHART - CLICKABLE */}
           {trends.length > 0 ? (
             <TouchableOpacity style={styles.chartCard} onPress={handleChartPress} activeOpacity={0.9}>
-              <Text style={styles.chartTitle}>Productivity Trend ({selectedPeriod})</Text>
+              <View style={styles.chartMetaRow}>
+                <Text style={styles.chartTitle}>Productivity Trend</Text>
+                <View style={styles.chartPill}>
+                  <Text style={styles.chartPillText}>{avgProductivity}/10 avg</Text>
+                </View>
+              </View>
               <View style={styles.chartWrapper}>
                 <LineChart
                   data={{
-                    labels: trends.map((t) => String(t.date || '').split('/')[0] || ''),
+                    labels: trends.map((t) => formatTrendLabel(t.date)),
                     datasets: [{ data: trends.map((t) => Number(t.productivityScore || 0)) }],
                   }}
-                  width={screenWidth - Spacing.xl * 2}
-                  height={200}
+                  width={chartWidth}
+                  height={210}
                   chartConfig={chartConfig}
                   bezier
-                  style={{ borderRadius: BorderRadius.lg }}
+                  fromZero
+                  segments={5}
+                  yAxisSuffix="/10"
+                  style={{ borderRadius: BorderRadius.lg, marginLeft: -12 }}
                 />
               </View>
             </TouchableOpacity>

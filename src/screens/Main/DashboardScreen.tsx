@@ -32,6 +32,7 @@ import {
 } from '../../utils/storage';
 import { Task, FocusSession } from '../../utils/types';
 import { haptics } from '../../utils/haptics';
+import { seedPresentationData } from '../../utils/demoData';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -267,6 +268,8 @@ export default function DashboardScreen({ navigation }: any) {
 
   const loadStats = async () => {
     try {
+      await seedStarterDataIfEmpty();
+
       const tasks = await loadTasks();
       const sessions = await loadFocus();
       const trends = await loadProductivityTrends();
@@ -312,6 +315,18 @@ export default function DashboardScreen({ navigation }: any) {
       });
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
+    }
+  };
+
+  const seedStarterDataIfEmpty = async () => {
+    const [tasks, sessions, trends] = await Promise.all([
+      loadTasks(),
+      loadFocus(),
+      loadProductivityTrends(),
+    ]);
+
+    if (tasks.length === 0 || sessions.length === 0 || trends.length === 0) {
+      await seedPresentationData(user?.uid || 'presentation-local');
     }
   };
 
