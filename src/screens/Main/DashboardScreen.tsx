@@ -2152,29 +2152,29 @@ export default function DashboardScreen({ navigation }: any) {
             <Text style={styles.modalTitle}>
               Schedule {selectedWellnessReminder?.label || 'Wellness'} Reminder
             </Text>
-            <Text style={styles.modalSubtitle}>Choose notification time</Text>
+            <Text style={styles.modalSubtitle}>Choose a daily reminder time</Text>
             <TouchableOpacity
               style={styles.reminderPickerButton}
-              onPress={() => setShowWellnessTimePicker(true)}
+              onPress={() => setShowWellnessTimePicker((visible) => !visible)}
               activeOpacity={0.85}
             >
               <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
               <Ionicons name="time-outline" size={22} color={colors.primary} />
             </TouchableOpacity>
             {showWellnessTimePicker && (
-              <DateTimePicker
-                value={wellnessReminderTime}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_event, selectedDate) => {
-                  if (Platform.OS !== 'ios') {
+              <View style={styles.timePickerInlineWrap}>
+                <DateTimePicker
+                  value={wellnessReminderTime}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  onChange={(_event, selectedDate) => {
                     setShowWellnessTimePicker(false);
-                  }
-                  if (selectedDate) {
-                    setWellnessReminderTime(selectedDate);
-                  }
-                }}
-              />
+                    if (selectedDate) {
+                      setWellnessReminderTime(selectedDate);
+                    }
+                  }}
+                />
+              </View>
             )}
             <TouchableOpacity
               style={styles.modalButton}

@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { offlineService } from '../services/offlineService';
 import { useAuth } from '../hooks/useAuth';
 import { testFirebaseConnection } from '../utils/testFirebase';
+import { auth } from '../services/firebaseConfig';
 
 interface SyncContextType {
   isOnline: boolean;
@@ -38,8 +39,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       // Check Firebase connectivity by trying to get a reference
       // This is a lightweight check
       try {
-        const { getAuth } = require('firebase/auth');
-        const auth = getAuth();
         // Check if auth is initialized (doesn't require network call)
         const isAuthInitialized = !!auth;
         
