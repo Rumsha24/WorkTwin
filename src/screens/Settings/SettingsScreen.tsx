@@ -27,6 +27,186 @@ import { clearAllData } from '../../utils/storage';
 import { exportService } from '../../services/exportService';
 import { haptics } from '../../utils/haptics';
 
+type AppLanguage = 'English' | 'French' | 'Spanish' | 'Hindi' | 'Italian' | 'Urdu' | 'Chinese';
+
+const settingsCopy: Record<AppLanguage, Record<string, string>> = {
+  English: {
+    preferences: 'Preferences',
+    notifications: 'Notifications',
+    darkMode: 'Dark Mode',
+    security: 'Security',
+    biometric: 'Biometric Authentication',
+    biometricHint: 'Face ID / Touch ID / fingerprint',
+    changePassword: 'Change Password',
+    productivityFeatures: 'Productivity Features',
+    goals: 'Goals System',
+    achievements: 'Achievements',
+    advancedReports: 'Advanced Reports',
+    language: 'Language',
+    languageSupport: 'Multi-language Support',
+    backupRestore: 'Backup and Restore',
+    exportData: 'Export Data',
+    importData: 'Import Data',
+    clearData: 'Clear Local Data',
+    support: 'Support',
+    helpSupport: 'Help & Support',
+    about: 'About WorkTwin',
+    chooseLanguage: 'Choose app language',
+    savedTitle: 'Language Saved',
+    savedBody: 'English selected. Settings labels updated.',
+  },
+  French: {
+    preferences: 'Preferences',
+    notifications: 'Notifications',
+    darkMode: 'Mode sombre',
+    security: 'Securite',
+    biometric: 'Authentification biometrique',
+    biometricHint: 'Face ID / Touch ID / empreinte',
+    changePassword: 'Changer le mot de passe',
+    productivityFeatures: 'Fonctions productivite',
+    goals: 'Objectifs',
+    achievements: 'Reussites',
+    advancedReports: 'Rapports avances',
+    language: 'Langue',
+    languageSupport: 'Support multilingue',
+    backupRestore: 'Sauvegarde et restauration',
+    exportData: 'Exporter les donnees',
+    importData: 'Importer les donnees',
+    clearData: 'Effacer les donnees locales',
+    support: 'Assistance',
+    helpSupport: 'Aide et assistance',
+    about: 'A propos de WorkTwin',
+    chooseLanguage: 'Choisissez la langue de l app',
+    savedTitle: 'Langue enregistree',
+    savedBody: 'Francais selectionne. Les libelles des parametres sont mis a jour.',
+  },
+  Spanish: {
+    preferences: 'Preferencias',
+    notifications: 'Notificaciones',
+    darkMode: 'Modo oscuro',
+    security: 'Seguridad',
+    biometric: 'Autenticacion biometrica',
+    biometricHint: 'Face ID / Touch ID / huella',
+    changePassword: 'Cambiar contrasena',
+    productivityFeatures: 'Funciones de productividad',
+    goals: 'Sistema de objetivos',
+    achievements: 'Logros',
+    advancedReports: 'Informes avanzados',
+    language: 'Idioma',
+    languageSupport: 'Soporte multiidioma',
+    backupRestore: 'Copia y restauracion',
+    exportData: 'Exportar datos',
+    importData: 'Importar datos',
+    clearData: 'Borrar datos locales',
+    support: 'Soporte',
+    helpSupport: 'Ayuda y soporte',
+    about: 'Acerca de WorkTwin',
+    chooseLanguage: 'Elige el idioma de la app',
+    savedTitle: 'Idioma guardado',
+    savedBody: 'Espanol seleccionado. Las etiquetas de ajustes se actualizaron.',
+  },
+  Hindi: {
+    preferences: 'पसंद',
+    notifications: 'सूचनाएं',
+    darkMode: 'डार्क मोड',
+    security: 'सुरक्षा',
+    biometric: 'बायोमेट्रिक लॉगिन',
+    biometricHint: 'Face ID / Touch ID / fingerprint',
+    changePassword: 'पासवर्ड बदलें',
+    productivityFeatures: 'उत्पादकता सुविधाएं',
+    goals: 'लक्ष्य प्रणाली',
+    achievements: 'उपलब्धियां',
+    advancedReports: 'उन्नत रिपोर्ट',
+    language: 'भाषा',
+    languageSupport: 'बहुभाषी समर्थन',
+    backupRestore: 'बैकअप और रिस्टोर',
+    exportData: 'डेटा एक्सपोर्ट करें',
+    importData: 'डेटा इम्पोर्ट करें',
+    clearData: 'लोकल डेटा हटाएं',
+    support: 'सहायता',
+    helpSupport: 'मदद और सहायता',
+    about: 'WorkTwin के बारे में',
+    chooseLanguage: 'ऐप की भाषा चुनें',
+    savedTitle: 'भाषा सेव हुई',
+    savedBody: 'हिंदी चुनी गई। सेटिंग्स अपडेट हो गई हैं।',
+  },
+  Italian: {
+    preferences: 'Preferenze',
+    notifications: 'Notifiche',
+    darkMode: 'Modalita scura',
+    security: 'Sicurezza',
+    biometric: 'Autenticazione biometrica',
+    biometricHint: 'Face ID / Touch ID / impronta',
+    changePassword: 'Cambia password',
+    productivityFeatures: 'Funzioni produttivita',
+    goals: 'Sistema obiettivi',
+    achievements: 'Risultati',
+    advancedReports: 'Report avanzati',
+    language: 'Lingua',
+    languageSupport: 'Supporto multilingua',
+    backupRestore: 'Backup e ripristino',
+    exportData: 'Esporta dati',
+    importData: 'Importa dati',
+    clearData: 'Cancella dati locali',
+    support: 'Supporto',
+    helpSupport: 'Aiuto e supporto',
+    about: 'Informazioni su WorkTwin',
+    chooseLanguage: 'Scegli la lingua dell app',
+    savedTitle: 'Lingua salvata',
+    savedBody: 'Italiano selezionato. Le etichette delle impostazioni sono aggiornate.',
+  },
+  Urdu: {
+    preferences: 'ترجیحات',
+    notifications: 'اطلاعات',
+    darkMode: 'ڈارک موڈ',
+    security: 'سیکیورٹی',
+    biometric: 'بایومیٹرک لاگ ان',
+    biometricHint: 'Face ID / Touch ID / fingerprint',
+    changePassword: 'پاس ورڈ تبدیل کریں',
+    productivityFeatures: 'پروڈکٹیوٹی فیچرز',
+    goals: 'اہداف کا نظام',
+    achievements: 'کامیابیاں',
+    advancedReports: 'ایڈوانس رپورٹس',
+    language: 'زبان',
+    languageSupport: 'کثیر زبان سپورٹ',
+    backupRestore: 'بیک اپ اور ریسٹور',
+    exportData: 'ڈیٹا ایکسپورٹ کریں',
+    importData: 'ڈیٹا امپورٹ کریں',
+    clearData: 'لوکل ڈیٹا صاف کریں',
+    support: 'سپورٹ',
+    helpSupport: 'مدد اور سپورٹ',
+    about: 'WorkTwin کے بارے میں',
+    chooseLanguage: 'ایپ کی زبان منتخب کریں',
+    savedTitle: 'زبان محفوظ ہو گئی',
+    savedBody: 'اردو منتخب ہو گئی۔ سیٹنگز اپ ڈیٹ ہو گئی ہیں۔',
+  },
+  Chinese: {
+    preferences: '偏好',
+    notifications: '通知',
+    darkMode: '深色模式',
+    security: '安全',
+    biometric: '生物识别登录',
+    biometricHint: 'Face ID / Touch ID / fingerprint',
+    changePassword: '更改密码',
+    productivityFeatures: '生产力功能',
+    goals: '目标系统',
+    achievements: '成就',
+    advancedReports: '高级报告',
+    language: '语言',
+    languageSupport: '多语言支持',
+    backupRestore: '备份和恢复',
+    exportData: '导出数据',
+    importData: '导入数据',
+    clearData: '清除本地数据',
+    support: '支持',
+    helpSupport: '帮助和支持',
+    about: '关于 WorkTwin',
+    chooseLanguage: '选择应用语言',
+    savedTitle: '语言已保存',
+    savedBody: '已选择中文。设置标签已更新。',
+  },
+};
+
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { colors, isDarkMode, toggleTheme } = useTheme();
@@ -37,10 +217,12 @@ export default function SettingsScreen() {
   const [goalsModalVisible, setGoalsModalVisible] = useState(false);
   const [achievementsModalVisible, setAchievementsModalVisible] = useState(false);
   const [reportsModalVisible, setReportsModalVisible] = useState(false);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [language, setLanguage] = useState('English');
+  const [language, setLanguage] = useState<AppLanguage>('English');
+  const copy = settingsCopy[language];
 
   const email = auth.currentUser?.isAnonymous
     ? 'Guest User'
@@ -54,6 +236,7 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadProfileCard();
+      loadAdvancedPreferences();
     }, [auth.currentUser?.uid])
   );
 
@@ -75,7 +258,17 @@ export default function SettingsScreen() {
         AsyncStorage.getItem('app_language'),
       ]);
       setBiometricEnabled(savedBiometric === 'true');
-      setLanguage(savedLanguage || 'English');
+      setLanguage(
+        savedLanguage === 'French' ||
+          savedLanguage === 'Spanish' ||
+          savedLanguage === 'Hindi' ||
+          savedLanguage === 'Italian' ||
+          savedLanguage === 'Urdu' ||
+          savedLanguage === 'Chinese' ||
+          savedLanguage === 'English'
+          ? savedLanguage
+          : 'English'
+      );
     } catch (error) {
       console.error('Error loading advanced preferences:', error);
     }
@@ -113,18 +306,14 @@ export default function SettingsScreen() {
 
   const handleLanguageSelect = () => {
     haptics.light();
-    Alert.alert('Language', 'Choose app language', [
-      { text: 'English', onPress: () => saveLanguage('English') },
-      { text: 'French', onPress: () => saveLanguage('French') },
-      { text: 'Spanish', onPress: () => saveLanguage('Spanish') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setLanguageModalVisible(true);
   };
 
-  const saveLanguage = async (nextLanguage: string) => {
+  const saveLanguage = async (nextLanguage: AppLanguage) => {
     setLanguage(nextLanguage);
     await AsyncStorage.setItem('app_language', nextLanguage);
-    Alert.alert('Language Saved', `${nextLanguage} selected. Full translations can be expanded from this setting.`);
+    setLanguageModalVisible(false);
+    Alert.alert(settingsCopy[nextLanguage].savedTitle, settingsCopy[nextLanguage].savedBody);
   };
 
   const showGoals = () => {
@@ -522,6 +711,23 @@ export default function SettingsScreen() {
       fontWeight: '700',
       flex: 1,
     },
+    languageOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginBottom: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    languageOptionActive: {
+      backgroundColor: colors.primary + '14',
+      borderColor: colors.primary,
+    },
+    languageName: { ...Typography.body, color: colors.text, fontWeight: '700' },
+    languageNative: { ...Typography.caption, color: colors.textSecondary, marginTop: 2 },
   });
 
   return (
@@ -559,12 +765,12 @@ export default function SettingsScreen() {
           </TouchableOpacity>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
+            <Text style={styles.sectionTitle}>{copy.preferences}</Text>
 
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="notifications-outline" size={22} color={colors.primary} />
-                <Text style={styles.settingText}>Notifications</Text>
+                <Text style={styles.settingText}>{copy.notifications}</Text>
               </View>
               <Switch
                 value={notifications}
@@ -582,7 +788,7 @@ export default function SettingsScreen() {
                   size={22}
                   color={colors.primary}
                 />
-                <Text style={styles.settingText}>Dark Mode</Text>
+                <Text style={styles.settingText}>{copy.darkMode}</Text>
               </View>
               <Switch
                 value={isDarkMode}
@@ -598,14 +804,14 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Security</Text>
+            <Text style={styles.sectionTitle}>{copy.security}</Text>
 
             <View style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <Ionicons name="finger-print-outline" size={22} color={colors.primary} />
                 <View>
-                  <Text style={styles.settingText}>Biometric Authentication</Text>
-                  <Text style={styles.settingHint}>Face ID / Touch ID / fingerprint</Text>
+                  <Text style={styles.settingText}>{copy.biometric}</Text>
+                  <Text style={styles.settingHint}>{copy.biometricHint}</Text>
                 </View>
               </View>
               <Switch
@@ -630,19 +836,19 @@ export default function SettingsScreen() {
             >
               <View style={styles.menuLeft}>
                 <Ionicons name="lock-closed-outline" size={22} color={colors.primary} />
-                <Text style={styles.menuText}>Change Password</Text>
+                <Text style={styles.menuText}>{copy.changePassword}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Productivity Features</Text>
+            <Text style={styles.sectionTitle}>{copy.productivityFeatures}</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={showGoals}>
               <View style={styles.menuLeft}>
                 <Ionicons name="flag-outline" size={22} color={colors.primary} />
-                <Text style={styles.menuText}>Goals System</Text>
+                <Text style={styles.menuText}>{copy.goals}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -650,7 +856,7 @@ export default function SettingsScreen() {
             <TouchableOpacity style={styles.menuItem} onPress={showAchievements}>
               <View style={styles.menuLeft}>
                 <Ionicons name="trophy-outline" size={22} color={colors.warning} />
-                <Text style={styles.menuText}>Achievements</Text>
+                <Text style={styles.menuText}>{copy.achievements}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -661,20 +867,20 @@ export default function SettingsScreen() {
             >
               <View style={styles.menuLeft}>
                 <Ionicons name="analytics-outline" size={22} color={colors.accent} />
-                <Text style={styles.menuText}>Advanced Reports</Text>
+                <Text style={styles.menuText}>{copy.advancedReports}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Language</Text>
+            <Text style={styles.sectionTitle}>{copy.language}</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleLanguageSelect}>
               <View style={styles.menuLeft}>
                 <Ionicons name="language-outline" size={22} color={colors.primary} />
                 <View>
-                  <Text style={styles.menuText}>Multi-language Support</Text>
+                  <Text style={styles.menuText}>{copy.languageSupport}</Text>
                   <Text style={styles.settingHint}>{language}</Text>
                 </View>
               </View>
@@ -683,12 +889,12 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Backup and Restore</Text>
+            <Text style={styles.sectionTitle}>{copy.backupRestore}</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleExportData}>
               <View style={styles.menuLeft}>
                 <Ionicons name="download-outline" size={22} color={colors.primary} />
-                <Text style={styles.menuText}>Export Data</Text>
+                <Text style={styles.menuText}>{copy.exportData}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -696,7 +902,7 @@ export default function SettingsScreen() {
             <TouchableOpacity style={styles.menuItem} onPress={handleImportData}>
               <View style={styles.menuLeft}>
                 <Ionicons name="cloud-upload-outline" size={22} color={colors.primary} />
-                <Text style={styles.menuText}>Import Data</Text>
+                <Text style={styles.menuText}>{copy.importData}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -705,7 +911,7 @@ export default function SettingsScreen() {
               <View style={styles.menuLeft}>
                 <Ionicons name="trash-outline" size={22} color={colors.danger} />
                 <Text style={[styles.menuText, { color: colors.danger }]}>
-                  Clear Local Data
+                  {copy.clearData}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -713,12 +919,12 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Support</Text>
+            <Text style={styles.sectionTitle}>{copy.support}</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={handleHelpSupport}>
               <View style={styles.menuLeft}>
                 <Ionicons name="help-circle-outline" size={22} color={colors.textSecondary} />
-                <Text style={styles.menuText}>Help & Support</Text>
+                <Text style={styles.menuText}>{copy.helpSupport}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -730,7 +936,7 @@ export default function SettingsScreen() {
                   size={22}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.menuText}>About WorkTwin</Text>
+                <Text style={styles.menuText}>{copy.about}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -744,6 +950,46 @@ export default function SettingsScreen() {
           <Text style={styles.version}>Version 2.0.0</Text>
         </View>
       </ScrollView>
+
+      <Modal visible={languageModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{copy.language}</Text>
+              <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalText}>{copy.chooseLanguage}</Text>
+            {([
+              ['English', 'English'],
+              ['French', 'Francais'],
+              ['Spanish', 'Espanol'],
+              ['Hindi', 'हिन्दी'],
+              ['Italian', 'Italiano'],
+              ['Urdu', 'اردو'],
+              ['Chinese', '中文'],
+            ] as Array<[AppLanguage, string]>).map(([item, nativeName]) => (
+              <TouchableOpacity
+                key={item}
+                style={[styles.languageOption, language === item && styles.languageOptionActive]}
+                onPress={() => saveLanguage(item)}
+                activeOpacity={0.85}
+              >
+                <View>
+                  <Text style={styles.languageName}>{item}</Text>
+                  <Text style={styles.languageNative}>{nativeName}</Text>
+                </View>
+                {language === item ? (
+                  <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                ) : (
+                  <Ionicons name="ellipse-outline" size={24} color={colors.textMuted} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
 
       {/* Help & Support Modal */}
       <Modal visible={helpModalVisible} transparent animationType="slide">
