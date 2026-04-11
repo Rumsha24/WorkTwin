@@ -247,6 +247,14 @@ export default function DashboardScreen({ navigation }: any) {
   const formatClockTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
+  const normalizeClockTime = (date: Date) => {
+    const hours24 = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const suffix = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 || 12;
+    return `${hours12}:${minutes} ${suffix}`;
+  };
+
   const createTimeSlot = (hour: number, minute: number, meridiem?: 'AM' | 'PM') => {
     const next = new Date();
     let normalizedHour = hour;
@@ -597,18 +605,13 @@ export default function DashboardScreen({ navigation }: any) {
 
   const handleAddMedicine = async () => {
     const name = newMedicine.name.trim();
-    const time = newMedicine.time.trim() || formatClockTime(medicineReminderTime);
+    const time = normalizeClockTime(medicineReminderTime);
     const dosage = newMedicine.dosage.trim();
-    const secondTime = formatClockTime(medicineSecondReminderTime);
+    const secondTime = normalizeClockTime(medicineSecondReminderTime);
     const selectedTimes = medicineFrequency === 'twice' ? [time, secondTime] : [time];
 
     if (!name || !dosage) {
       Alert.alert('Error', 'Please add medicine name and dosage');
-      return;
-    }
-
-    if (!selectedTimes.every((value) => /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/.test(value))) {
-      Alert.alert('Invalid Time', 'Please enter time like 9:00 AM or 21:00.');
       return;
     }
 
@@ -634,7 +637,7 @@ export default function DashboardScreen({ navigation }: any) {
     setShowAddMedicine(false);
     await loadHealthData();
     haptics.success();
-    Alert.alert(
+      Alert.alert(
       'Medicine Added',
       `${name} set for ${formatMedicineDays(medicineDays)} at ${selectedTimes.join(' and ')} (${medicineMealTiming}).`
     );
@@ -664,7 +667,7 @@ export default function DashboardScreen({ navigation }: any) {
     setShowMedicineTimePicker(false);
     if (selectedDate) {
       setMedicineReminderTime(selectedDate);
-      setNewMedicine((current) => ({ ...current, time: formatClockTime(selectedDate) }));
+      setNewMedicine((current) => ({ ...current, time: normalizeClockTime(selectedDate) }));
     }
   };
 
@@ -2176,7 +2179,7 @@ export default function DashboardScreen({ navigation }: any) {
                       style={styles.quickTimeChip}
                       onPress={() => {
                         setMedicineReminderTime(chipTime);
-                        setNewMedicine({ ...newMedicine, time: formatClockTime(chipTime) });
+                        setNewMedicine({ ...newMedicine, time: normalizeClockTime(chipTime) });
                         setShowMedicineTimePicker(false);
                       }}
                       activeOpacity={0.85}

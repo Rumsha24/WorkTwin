@@ -338,7 +338,12 @@ export function useHealth() {
       }
 
       const parseTime = (value: string) => {
-        const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/);
+        const normalized = value
+          .replace(/\u202F|\u00A0/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toUpperCase();
+        const match = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/);
         if (!match) return null;
         let hour = parseInt(match[1], 10);
         const minute = parseInt(match[2], 10);

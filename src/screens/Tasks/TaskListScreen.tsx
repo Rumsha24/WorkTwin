@@ -132,6 +132,27 @@ export default function TaskListScreen() {
     return next;
   };
 
+  const setQuickDueDate = (offsetDays: number) => {
+    const next = new Date();
+    next.setHours(12, 0, 0, 0);
+    next.setDate(next.getDate() + offsetDays);
+    setDueDate(next);
+    if (reminderTime) {
+      setReminderTime(mergeReminderWithDueDate(reminderTime, next));
+    }
+    setShowDatePicker(false);
+    haptics.light();
+  };
+
+  const setQuickReminderTime = (hour: number, minute: number) => {
+    const next = new Date();
+    next.setHours(hour, minute, 0, 0);
+    setReminder(true);
+    setReminderTime(mergeReminderWithDueDate(next, dueDate));
+    setShowTimePicker(false);
+    haptics.light();
+  };
+
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) {
       haptics.error();
@@ -458,6 +479,34 @@ export default function TaskListScreen() {
       gap: Spacing.md,
     },
     timeBtnText: { color: colors.text, fontSize: 14 },
+    pickerInlineWrap: {
+      backgroundColor: colors.card,
+      borderRadius: BorderRadius.lg,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.sm,
+      marginBottom: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    quickPickerRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    pickerChip: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: BorderRadius.round,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    pickerChipText: {
+      ...Typography.caption,
+      color: colors.text,
+      fontWeight: '600',
+    },
     modalButtons: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -756,6 +805,22 @@ export default function TaskListScreen() {
                   {dueDate ? formatPickerDate(dueDate) : t('set_due_date')}
                 </Text>
               </TouchableOpacity>
+              <View style={styles.quickPickerRow}>
+                <TouchableOpacity
+                  style={styles.pickerChip}
+                  onPress={() => setQuickDueDate(0)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.pickerChipText}>Today</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerChip}
+                  onPress={() => setQuickDueDate(1)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.pickerChipText}>Tomorrow</Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.reminderContainer}>
                 <View style={styles.reminderRow}>
@@ -795,6 +860,31 @@ export default function TaskListScreen() {
                     </Text>
                   </TouchableOpacity>
                 ) : null}
+                {reminder ? (
+                  <View style={[styles.quickPickerRow, { marginTop: Spacing.sm, marginBottom: 0 }]}>
+                    <TouchableOpacity
+                      style={styles.pickerChip}
+                      onPress={() => setQuickReminderTime(9, 0)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.pickerChipText}>9:00 AM</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.pickerChip}
+                      onPress={() => setQuickReminderTime(13, 0)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.pickerChipText}>1:00 PM</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.pickerChip}
+                      onPress={() => setQuickReminderTime(20, 0)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.pickerChipText}>8:00 PM</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
 
               <TextInput
@@ -808,39 +898,43 @@ export default function TaskListScreen() {
               />
 
               {showDatePicker ? (
-                <DateTimePicker
-                  value={dueDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                  minimumDate={new Date()}
-                  onChange={(_, selectedDate) => {
-                    if (Platform.OS !== 'ios') {
-                      setShowDatePicker(false);
-                    }
-                    if (selectedDate) {
-                      setDueDate(selectedDate);
-                      if (reminderTime) {
-                        setReminderTime(mergeReminderWithDueDate(reminderTime, selectedDate));
+                <View style={styles.pickerInlineWrap}>
+                  <DateTimePicker
+                    value={dueDate || new Date()}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                    minimumDate={new Date()}
+                    onChange={(_, selectedDate) => {
+                      if (Platform.OS !== 'ios') {
+                        setShowDatePicker(false);
                       }
-                    }
-                  }}
-                />
+                      if (selectedDate) {
+                        setDueDate(selectedDate);
+                        if (reminderTime) {
+                          setReminderTime(mergeReminderWithDueDate(reminderTime, selectedDate));
+                        }
+                      }
+                    }}
+                  />
+                </View>
               ) : null}
 
               {showTimePicker ? (
-                <DateTimePicker
-                  value={reminderTime || mergeReminderWithDueDate(new Date(), dueDate)}
-                  mode="time"
-                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
-                  onChange={(_, selectedDate) => {
-                    if (Platform.OS !== 'ios') {
-                      setShowTimePicker(false);
-                    }
-                    if (selectedDate) {
-                      setReminderTime(mergeReminderWithDueDate(selectedDate, dueDate));
-                    }
-                  }}
-                />
+                <View style={styles.pickerInlineWrap}>
+                  <DateTimePicker
+                    value={reminderTime || mergeReminderWithDueDate(new Date(), dueDate)}
+                    mode="time"
+                    display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                    onChange={(_, selectedDate) => {
+                      if (Platform.OS !== 'ios') {
+                        setShowTimePicker(false);
+                      }
+                      if (selectedDate) {
+                        setReminderTime(mergeReminderWithDueDate(selectedDate, dueDate));
+                      }
+                    }}
+                  />
+                </View>
               ) : null}
 
               <View style={styles.modalButtons}>
