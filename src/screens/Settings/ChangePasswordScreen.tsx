@@ -14,6 +14,7 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  reload,
 } from 'firebase/auth';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -73,6 +74,8 @@ export default function ChangePasswordScreen({ navigation }: any) {
         throw new Error('No authenticated user found');
       }
 
+      await reload(user);
+
       const hasPasswordProvider = user.providerData.some(
         (provider) => provider.providerId === 'password'
       );
@@ -96,16 +99,24 @@ export default function ChangePasswordScreen({ navigation }: any) {
       haptics.error();
       console.error('Error changing password:', error);
 
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+      if (
+        error.code === 'auth/wrong-password' ||
+        error.code === 'auth/invalid-credential' ||
+        error.code === 'auth/invalid-login-credentials'
+      ) {
         setError('Current password is incorrect');
       } else if (error.code === 'auth/weak-password') {
         setError('Password is too weak. Please use a stronger password');
       } else if (error.code === 'auth/requires-recent-login') {
         setError('Please log out and log in again before changing your password');
+      } else if (error.code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please wait a moment and try again.');
+      } else if (error.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your internet connection and try again.');
       } else if (error.message === 'This account does not use email and password sign-in.') {
         setError('This account cannot change password here because it was not created with email/password login.');
       } else {
-        setError(error.message || 'Failed to change password');
+        setError('Unable to change password right now. Please verify your current password and try again.');
       }
     } finally {
       setLoading(false);
@@ -414,7 +425,7 @@ export default function ChangePasswordScreen({ navigation }: any) {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={24} color={colors.info} />
             <Text style={styles.infoText}>
-              For security, you may need to log in again before sensitive account changes.
+              For security, enter your current login password first. If you are using the presentation account, use its existing password before setting a new one.
             </Text>
           </View>
         </View>
