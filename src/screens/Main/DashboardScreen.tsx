@@ -2217,6 +2217,25 @@ export default function DashboardScreen({ navigation }: any) {
                       />
                     </View>
                   )}
+                  <View style={styles.quickTimeRow}>
+                    {medicineQuickTimes.map((item) => {
+                      const chipTime = createTimeSlot(item.hour, item.minute, item.meridiem);
+                      return (
+                        <TouchableOpacity
+                          key={`second-${item.label}`}
+                          style={styles.quickTimeChip}
+                          onPress={() => {
+                            setMedicineSecondReminderTime(chipTime);
+                            setShowMedicineSecondTimePicker(false);
+                          }}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.quickTimeText}>{item.label}</Text>
+                          <Text style={styles.quickTimeSubText}>{formatClockTime(chipTime)}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </>
               ) : null}
             </ScrollView>

@@ -78,6 +78,7 @@ export default function TaskListScreen() {
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [activeTimeTarget, setActiveTimeTarget] = useState<'due' | 'reminder'>('due');
 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
@@ -118,6 +119,7 @@ export default function TaskListScreen() {
     setReminder(false);
     setReminderTime(null);
     setNotes('');
+    setActiveTimeTarget('due');
   };
 
   const formatPickerDate = (date: Date) =>
@@ -134,7 +136,9 @@ export default function TaskListScreen() {
 
   const setQuickDueDate = (offsetDays: number) => {
     const next = new Date();
-    next.setHours(12, 0, 0, 0);
+    const baseHours = dueDate?.getHours() ?? 12;
+    const baseMinutes = dueDate?.getMinutes() ?? 0;
+    next.setHours(baseHours, baseMinutes, 0, 0);
     next.setDate(next.getDate() + offsetDays);
     setDueDate(next);
     if (reminderTime) {
@@ -149,6 +153,16 @@ export default function TaskListScreen() {
     next.setHours(hour, minute, 0, 0);
     setReminder(true);
     setReminderTime(mergeReminderWithDueDate(next, dueDate));
+    setActiveTimeTarget('reminder');
+    setShowTimePicker(false);
+    haptics.light();
+  };
+
+  const setQuickDueTime = (hour: number, minute: number) => {
+    const next = new Date(dueDate || new Date());
+    next.setHours(hour, minute, 0, 0);
+    setDueDate(next);
+    setActiveTimeTarget('due');
     setShowTimePicker(false);
     haptics.light();
   };
@@ -802,7 +816,7 @@ export default function TaskListScreen() {
               >
                 <Ionicons name="calendar" size={20} color={colors.primary} />
                 <Text style={styles.dateBtnText}>
-                  {dueDate ? formatPickerDate(dueDate) : t('set_due_date')}
+                  {dueDate ? `${formatPickerDate(dueDate)} • ${formatPickerTime(dueDate)}` : t('set_due_date')}
                 </Text>
               </TouchableOpacity>
               <View style={styles.quickPickerRow}>
@@ -821,6 +835,42 @@ export default function TaskListScreen() {
                   <Text style={styles.pickerChipText}>Tomorrow</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                style={styles.timeBtn}
+                onPress={() => {
+                  setShowDatePicker(false);
+                  setActiveTimeTarget('due');
+                  setShowTimePicker((visible) => !visible);
+                }}
+              >
+                <Ionicons name="time-outline" size={20} color={colors.primary} />
+                <Text style={styles.timeBtnText}>
+                  {dueDate ? `Due Time: ${formatPickerTime(dueDate)}` : 'Set Due Time'}
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.quickPickerRow}>
+                <TouchableOpacity
+                  style={styles.pickerChip}
+                  onPress={() => setQuickDueTime(9, 0)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.pickerChipText}>9:00 AM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerChip}
+                  onPress={() => setQuickDueTime(17, 0)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.pickerChipText}>5:00 PM</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerChip}
+                  onPress={() => setQuickDueTime(21, 0)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.pickerChipText}>9:00 PM</Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.reminderContainer}>
                 <View style={styles.reminderRow}>
@@ -836,6 +886,7 @@ export default function TaskListScreen() {
                         setReminderTime(null);
                       } else if (!reminderTime) {
                         setReminderTime(mergeReminderWithDueDate(new Date(), dueDate));
+                        setActiveTimeTarget('reminder');
                       }
                     }}
                     trackColor={{ false: colors.border, true: colors.primary }}
@@ -849,6 +900,7 @@ export default function TaskListScreen() {
                     style={styles.timeBtn}
                     onPress={() => {
                       setShowDatePicker(false);
+                      setActiveTimeTarget('reminder');
                       setShowTimePicker((visible) => !visible);
                     }}
                   >
@@ -922,7 +974,11 @@ export default function TaskListScreen() {
               {showTimePicker ? (
                 <View style={styles.pickerInlineWrap}>
                   <DateTimePicker
-                    value={reminderTime || mergeReminderWithDueDate(new Date(), dueDate)}
+                    value={
+                      activeTimeTarget === 'due'
+                        ? dueDate || new Date()
+                        : reminderTime || mergeReminderWithDueDate(new Date(), dueDate)
+                    }
                     mode="time"
                     display={Platform.OS === 'ios' ? 'compact' : 'default'}
                     onChange={(_, selectedDate) => {
@@ -930,7 +986,11 @@ export default function TaskListScreen() {
                         setShowTimePicker(false);
                       }
                       if (selectedDate) {
-                        setReminderTime(mergeReminderWithDueDate(selectedDate, dueDate));
+                        if (activeTimeTarget === 'due') {
+                          setDueDate(mergeReminderWithDueDate(selectedDate, dueDate));
+                        } else {
+                          setReminderTime(mergeReminderWithDueDate(selectedDate, dueDate));
+                        }
                       }
                     }}
                   />
