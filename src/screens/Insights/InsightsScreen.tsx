@@ -59,6 +59,12 @@ type PeriodLog = {
   notes?: string;
 };
 
+const DEFAULT_WELLNESS_REMINDER_OPTIONS: WellnessReminderOption[] = [
+  { type: 'hydration', label: 'Hydrate Reminder', time: '10 AM', hour: 10, minute: 0, icon: 'water' },
+  { type: 'break', label: 'Break Reminder', time: '2 PM', hour: 14, minute: 0, icon: 'body' },
+  { type: 'checkin', label: 'Check-in Reminder', time: '8 PM', hour: 20, minute: 0, icon: 'clipboard' },
+];
+
 export default function InsightsScreen({ navigation }: any) {
   const { colors } = useTheme();
   const { t } = useLanguage();
@@ -98,12 +104,9 @@ export default function InsightsScreen({ navigation }: any) {
   const [selectedWellnessReminder, setSelectedWellnessReminder] = useState<WellnessReminderOption | null>(null);
   const [wellnessReminderTime, setWellnessReminderTime] = useState(new Date());
   const [showWellnessTimePicker, setShowWellnessTimePicker] = useState(false);
-
-  const wellnessReminderOptions: WellnessReminderOption[] = [
-    { type: 'hydration', label: 'Hydrate Reminder', time: '10 AM', hour: 10, minute: 0, icon: 'water' },
-    { type: 'break', label: 'Break Reminder', time: '2 PM', hour: 14, minute: 0, icon: 'body' },
-    { type: 'checkin', label: 'Check-in Reminder', time: '8 PM', hour: 20, minute: 0, icon: 'clipboard' },
-  ];
+  const [wellnessReminderOptions, setWellnessReminderOptions] = useState<WellnessReminderOption[]>(
+    DEFAULT_WELLNESS_REMINDER_OPTIONS
+  );
 
   // Load data when screen focuses or period changes
   useFocusEffect(
@@ -125,6 +128,7 @@ export default function InsightsScreen({ navigation }: any) {
       await loadHealthData();
       await loadWaterIntake();
       await loadPeriodInsights();
+      await loadWellnessReminderOptions();
 
       const totalSeconds = sessions.reduce((acc: number, s: any) => acc + (s.seconds || 0), 0);
       setTotalFocus(totalSeconds);
@@ -400,6 +404,33 @@ export default function InsightsScreen({ navigation }: any) {
     setShowWellnessScheduleModal(true);
   };
 
+  const loadWellnessReminderOptions = async () => {
+    const updatedOptions = await Promise.all(
+      DEFAULT_WELLNESS_REMINDER_OPTIONS.map(async (option) => {
+        const storageKey = `wellnessReminderTime:${option.type}:${user?.uid || 'local'}`;
+        const savedTime = await AsyncStorage.getItem(storageKey);
+
+        if (!savedTime) {
+          return option;
+        }
+
+        const parsedDate = new Date(savedTime);
+        if (Number.isNaN(parsedDate.getTime())) {
+          return option;
+        }
+
+        return {
+          ...option,
+          hour: parsedDate.getHours(),
+          minute: parsedDate.getMinutes(),
+          time: formatReminderTime(parsedDate),
+        };
+      })
+    );
+
+    setWellnessReminderOptions(updatedOptions);
+  };
+
   const formatReminderTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
@@ -434,6 +465,23 @@ export default function InsightsScreen({ navigation }: any) {
     }
 
     await AsyncStorage.setItem(storageKey, notificationId);
+    await AsyncStorage.setItem(
+      `wellnessReminderTime:${selectedWellnessReminder.type}:${user?.uid || 'local'}`,
+      wellnessReminderTime.toISOString()
+    );
+    setWellnessReminderOptions((current) =>
+      current.map((option) =>
+        option.type === selectedWellnessReminder.type
+          ? {
+              ...option,
+              hour,
+              minute,
+              time: formatReminderTime(wellnessReminderTime),
+              label: selectedWellnessReminder.label,
+            }
+          : option
+      )
+    );
     setShowWellnessScheduleModal(false);
     setShowWellnessTimePicker(false);
     haptics.success();

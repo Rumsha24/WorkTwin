@@ -55,6 +55,13 @@ type PeriodLog = {
   notes?: string;
 };
 
+const DEFAULT_WELLNESS_REMINDER_OPTIONS: WellnessReminderOption[] = [
+  { type: 'hydration', label: 'Hydrate Reminder', time: '10:00 AM', hour: 10, minute: 0, icon: 'water' },
+  { type: 'break', label: 'Break Reminder', time: '2:00 PM', hour: 14, minute: 0, icon: 'body' },
+  { type: 'checkin', label: 'Check-in Reminder', time: '8:00 PM', hour: 20, minute: 0, icon: 'clipboard' },
+  { type: 'breathing', label: 'Breathe', time: '9:00 PM', hour: 21, minute: 0, icon: 'leaf' },
+];
+
 export default function DashboardScreen({ navigation }: any) {
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -106,6 +113,9 @@ export default function DashboardScreen({ navigation }: any) {
     useState<WellnessReminderOption | null>(null);
   const [wellnessReminderTime, setWellnessReminderTime] = useState(new Date());
   const [showWellnessTimePicker, setShowWellnessTimePicker] = useState(false);
+  const [wellnessReminderOptions, setWellnessReminderOptions] = useState<WellnessReminderOption[]>(
+    DEFAULT_WELLNESS_REMINDER_OPTIONS
+  );
   const [stepInput, setStepInput] = useState('');
   const [stepGoalInput, setStepGoalInput] = useState('');
   const [mentalQuestionIndex, setMentalQuestionIndex] = useState(0);
@@ -176,18 +186,11 @@ export default function DashboardScreen({ navigation }: any) {
     { label: 'Night', hour: 8, minute: 0, meridiem: 'PM' as const },
   ];
 
-  const wellnessReminderOptions: WellnessReminderOption[] = [
-    { type: 'hydration', label: 'Hydrate Reminder', time: '10:00 AM', hour: 10, minute: 0, icon: 'water' },
-    { type: 'break', label: 'Break Reminder', time: '2:00 PM', hour: 14, minute: 0, icon: 'body' },
-    { type: 'checkin', label: 'Check-in Reminder', time: '8:00 PM', hour: 20, minute: 0, icon: 'clipboard' },
-    { type: 'breathing', label: 'Breathe', time: '9:00 PM', hour: 21, minute: 0, icon: 'leaf' },
-  ];
-
   useFocusEffect(
     useCallback(() => {
       updateGreeting();
       const task = InteractionManager.runAfterInteractions(async () => {
-        await Promise.all([loadStats(), loadHealthData(), loadProfileMeta()]);
+        await Promise.all([loadStats(), loadHealthData(), loadProfileMeta(), loadWellnessReminderOptions()]);
       });
 
       return () => task.cancel();
@@ -378,6 +381,33 @@ export default function DashboardScreen({ navigation }: any) {
     setShowWellnessScheduleModal(true);
   };
 
+  const loadWellnessReminderOptions = async () => {
+    const updatedOptions = await Promise.all(
+      DEFAULT_WELLNESS_REMINDER_OPTIONS.map(async (option) => {
+        const storageKey = `wellnessReminderTime:${option.type}:${user?.uid || 'local'}`;
+        const savedTime = await AsyncStorage.getItem(storageKey);
+
+        if (!savedTime) {
+          return option;
+        }
+
+        const parsedDate = new Date(savedTime);
+        if (Number.isNaN(parsedDate.getTime())) {
+          return option;
+        }
+
+        return {
+          ...option,
+          hour: parsedDate.getHours(),
+          minute: parsedDate.getMinutes(),
+          time: formatReminderTime(parsedDate),
+        };
+      })
+    );
+
+    setWellnessReminderOptions(updatedOptions);
+  };
+
   const handleScheduleWellnessReminder = async () => {
     if (!selectedWellnessReminder) return;
 
@@ -409,6 +439,23 @@ export default function DashboardScreen({ navigation }: any) {
     }
 
     await AsyncStorage.setItem(storageKey, notificationId);
+    await AsyncStorage.setItem(
+      `wellnessReminderTime:${selectedWellnessReminder.type}:${user?.uid || 'local'}`,
+      wellnessReminderTime.toISOString()
+    );
+    setWellnessReminderOptions((current) =>
+      current.map((option) =>
+        option.type === selectedWellnessReminder.type
+          ? {
+              ...option,
+              hour,
+              minute,
+              time: formatReminderTime(wellnessReminderTime),
+              label: selectedWellnessReminder.label,
+            }
+          : option
+      )
+    );
     setShowWellnessScheduleModal(false);
     setShowWellnessTimePicker(false);
     haptics.success();
