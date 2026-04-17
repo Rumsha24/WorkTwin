@@ -396,6 +396,7 @@ export default function InsightsScreen({ navigation }: any) {
     nextReminderTime.setHours(option.hour, option.minute, 0, 0);
     setSelectedWellnessReminder(option);
     setWellnessReminderTime(nextReminderTime);
+    setShowWellnessTimePicker(false);
     setShowWellnessScheduleModal(true);
   };
 

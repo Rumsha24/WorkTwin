@@ -374,6 +374,7 @@ export default function DashboardScreen({ navigation }: any) {
     nextReminderTime.setHours(option.hour, option.minute, 0, 0);
     setSelectedWellnessReminder(option);
     setWellnessReminderTime(nextReminderTime);
+    setShowWellnessTimePicker(false);
     setShowWellnessScheduleModal(true);
   };
 
@@ -2393,7 +2394,7 @@ export default function DashboardScreen({ navigation }: any) {
             <Text style={styles.modalSubtitle}>Choose a daily reminder time</Text>
             <TouchableOpacity
               style={styles.reminderPickerButton}
-              onPress={() => setShowWellnessTimePicker((visible) => !visible)}
+              onPress={() => setShowWellnessTimePicker(true)}
               activeOpacity={0.85}
             >
               <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
@@ -2404,9 +2405,11 @@ export default function DashboardScreen({ navigation }: any) {
                 <DateTimePicker
                   value={wellnessReminderTime}
                   mode="time"
-                  display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={(_event, selectedDate) => {
-                    setShowWellnessTimePicker(false);
+                    if (Platform.OS !== 'ios') {
+                      setShowWellnessTimePicker(false);
+                    }
                     if (selectedDate) {
                       setWellnessReminderTime(selectedDate);
                     }
