@@ -177,9 +177,9 @@ export default function DashboardScreen({ navigation }: any) {
   ];
 
   const wellnessReminderOptions: WellnessReminderOption[] = [
-    { type: 'hydration', label: 'Hydrate', time: '10:00 AM', hour: 10, minute: 0, icon: 'water' },
-    { type: 'break', label: 'Break', time: '2:00 PM', hour: 14, minute: 0, icon: 'body' },
-    { type: 'checkin', label: 'Check-in', time: '8:00 PM', hour: 20, minute: 0, icon: 'clipboard' },
+    { type: 'hydration', label: 'Hydrate Reminder', time: '10:00 AM', hour: 10, minute: 0, icon: 'water' },
+    { type: 'break', label: 'Break Reminder', time: '2:00 PM', hour: 14, minute: 0, icon: 'body' },
+    { type: 'checkin', label: 'Check-in Reminder', time: '8:00 PM', hour: 20, minute: 0, icon: 'clipboard' },
     { type: 'breathing', label: 'Breathe', time: '9:00 PM', hour: 21, minute: 0, icon: 'leaf' },
   ];
 

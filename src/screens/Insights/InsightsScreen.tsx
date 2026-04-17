@@ -100,9 +100,9 @@ export default function InsightsScreen({ navigation }: any) {
   const [showWellnessTimePicker, setShowWellnessTimePicker] = useState(false);
 
   const wellnessReminderOptions: WellnessReminderOption[] = [
-    { type: 'hydration', label: 'Hydrate', time: '10 AM', hour: 10, minute: 0, icon: 'water' },
-    { type: 'break', label: 'Break', time: '2 PM', hour: 14, minute: 0, icon: 'body' },
-    { type: 'checkin', label: 'Check-in', time: '8 PM', hour: 20, minute: 0, icon: 'clipboard' },
+    { type: 'hydration', label: 'Hydrate Reminder', time: '10 AM', hour: 10, minute: 0, icon: 'water' },
+    { type: 'break', label: 'Break Reminder', time: '2 PM', hour: 14, minute: 0, icon: 'body' },
+    { type: 'checkin', label: 'Check-in Reminder', time: '8 PM', hour: 20, minute: 0, icon: 'clipboard' },
   ];
 
   // Load data when screen focuses or period changes
