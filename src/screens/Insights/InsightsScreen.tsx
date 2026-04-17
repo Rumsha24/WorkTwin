@@ -435,6 +435,7 @@ export default function InsightsScreen({ navigation }: any) {
 
     await AsyncStorage.setItem(storageKey, notificationId);
     setShowWellnessScheduleModal(false);
+    setShowWellnessTimePicker(false);
     haptics.success();
     Alert.alert(
       'Reminder Set',
@@ -1170,28 +1171,47 @@ export default function InsightsScreen({ navigation }: any) {
               Schedule {selectedWellnessReminder?.label || 'Wellness'} Reminder
             </Text>
             <Text style={styles.modalSubtitle}>Choose when you want to be notified daily.</Text>
-            <TouchableOpacity
-              style={styles.reminderPickerButton}
-              onPress={() => setShowWellnessTimePicker(true)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
-              <Ionicons name="time-outline" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            {showWellnessTimePicker && (
-              <DateTimePicker
-                value={wellnessReminderTime}
-                mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_event, selectedDate) => {
-                  if (Platform.OS !== 'ios') {
-                    setShowWellnessTimePicker(false);
-                  }
-                  if (selectedDate) {
-                    setWellnessReminderTime(selectedDate);
-                  }
-                }}
-              />
+            {Platform.OS === 'ios' ? (
+              <View style={styles.timePickerInlineWrap}>
+                <View style={styles.reminderPickerButton}>
+                  <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
+                  <Ionicons name="time-outline" size={22} color={colors.primary} />
+                </View>
+                <DateTimePicker
+                  value={wellnessReminderTime}
+                  mode="time"
+                  display="spinner"
+                  onChange={(_event, selectedDate) => {
+                    if (selectedDate) {
+                      setWellnessReminderTime(selectedDate);
+                    }
+                  }}
+                />
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.reminderPickerButton}
+                  onPress={() => setShowWellnessTimePicker(true)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.reminderPickerText}>{formatReminderTime(wellnessReminderTime)}</Text>
+                  <Ionicons name="time-outline" size={22} color={colors.primary} />
+                </TouchableOpacity>
+                {showWellnessTimePicker && (
+                  <DateTimePicker
+                    value={wellnessReminderTime}
+                    mode="time"
+                    display="default"
+                    onChange={(_event, selectedDate) => {
+                      setShowWellnessTimePicker(false);
+                      if (selectedDate) {
+                        setWellnessReminderTime(selectedDate);
+                      }
+                    }}
+                  />
+                )}
+              </>
             )}
             <TouchableOpacity
               style={styles.modalButton}
